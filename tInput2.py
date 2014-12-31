@@ -272,7 +272,9 @@ timeLbl.grid(row = 2, column = 1)
 
 timeHIn = IntVar()#hours
 timeHTB = Entry(timeEntryFrm, textvariable = timeHIn, width = 2)
-timeHTB.grid(row = 2, column = 2)
+timeHTB.grid(row = 2, column = 2, sticky = W)
+testLbl1 = Label(timeEntryFrm, text = "h")#ive tried hrs and hours but doesn't look good
+testLbl1.grid(row = 2, column = 2, sticky = E)
 timeMIn = IntVar()#minutes
 timeMTB = Entry(timeEntryFrm, textvariable = timeMIn, width = 2)
 timeMTB.grid(row = 2, column = 3)
