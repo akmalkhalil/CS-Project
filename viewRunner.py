@@ -26,15 +26,26 @@ def createTree(tree, cols):
     tree.column('#4', stretch=NO, minwidth=150, width=150)
 
     
-def insertIntoTree(tree, fname, lname):
+def insertIntoTree(tree, fname = '', lname = ''):
+    if len(tree.get_children()) > 0:
+        emptyTreeview(tree)
     db = sqlite3.connect("runningDB/running.db")
     q = db.cursor()
-    sql =''
-    q.execute(sql)
-    #stuffs
-    
+    sql ="""SELECT * FROM runners
+WHERE fName LIKE ?
+AND lName LIKE ?
+"""
+    q.execute(sql, [fname, lname])
+    runners = q.fetchall()
     q.close()
     db.close()
+
+    for runner in runners:
+        tree.insert("", END, "", values=runner, tag='rowFont')
+
+    
+    
+
     
 
 myGUI = Tk()
@@ -52,18 +63,19 @@ viewRSNameTB = Entry(viewRunnerFrm, textvariable = viewRSNameIn)
 viewRSNameTB.grid(row = 1, column = 3)
 
 
-viewRSearchB = Button(viewRunnerFrm, text = "Find", command = lambda: searchRunners(viewRFNameIn.get(), viewRSNameIn.get()))
+viewRSearchB = Button(viewRunnerFrm, text = "Find", command = lambda:insertIntoTree(runnersTreeview, viewRFNameIn.get(), viewRSNameIn.get()))
 viewRSearchB.grid(row = 2, column =1)
 
 #ok how about i have 2 treeviews
 #fist one a smaller one with the runners
 #when a runner's selected, the second one shows their times and stuff
 viewRunnersCols = ('ID', 'First Name', 'Surname', 'Form')
-runnersTreeivew = Treeview(viewRunnerFrm, columns = viewRunnersCols, selectmode = "extended", height = 4)
-createTree(runnersTreeivew, viewRunnersCols)
+runnersTreeview = Treeview(viewRunnerFrm, columns = viewRunnersCols, selectmode = "extended", height = 4)
+createTree(runnersTreeview, viewRunnersCols)
+
 
 #insted of doing columnspan in the final prgogram just stick it on another frame
-runnersTreeivew.grid(row = 3, column= 1,columnspan = 3, sticky = NSEW)
+runnersTreeview.grid(row = 3, column= 1,columnspan = 3, sticky = NSEW)
 
 
 myGUI.mainloop()
