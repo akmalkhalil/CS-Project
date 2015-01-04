@@ -14,15 +14,15 @@ def save():
     secondsLbl = Label(timeEntryFrm, text = str(seconds))
     secondsLbl.grid(row = 3, column = 2)
 
-#to stop me creating hundreds of entrys in the DB
-##    db = sqlite3.connect("runningDB/running.db")
-##    q = db.cursor()
-##    sql = "INSERT INTO times(runner_id, event_id, time) VALUES(?,?,?)"
-##    q.execute(sql, [runnerID, '4', seconds])#SHOULD HAVE TO CHECK IF THERES ALREADY AN ENTRY
-##    print(runnerID)
-##    q.close()
-##    db.commit()
-##    db.close()
+
+    db = sqlite3.connect("runningDB/running.db")
+    q = db.cursor()
+    sql = "INSERT INTO times(runner_id, event_id, time) VALUES(?,?,?)"
+    q.execute(sql, [runnerID, '4', seconds])#SHOULD HAVE TO CHECK IF THERES ALREADY AN ENTRY
+    print(runnerID)
+    q.close()
+    db.commit()
+    db.close()
 
 def checkN(out):
     #edit so that search by form first, then by sname the fname, until we have 1person
@@ -84,47 +84,30 @@ def getEvents():#the events in the dropdown box
     return returned
 
 
-def disTs(ID):#display times
-    #need to chenge this function to work ith this program
-    db = sqlite3.connect("runningDB/running.db")
+def disTs(ID, tree, yscroll):#display times
+    db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
-    sql = """ SELECT * FROM times, runners, events, locations
-WHERE times.runner_id = runners.id
+
+    sql = """ SELECT events.id, events.name, locations.name, events.length, events.date, times.time, times.checked
+FROM events, locations, times, runners
+WHERE events.id = times.event_id
 AND events.location_id = locations.id
-AND times.event_id = events.id
-AND runners.id = (?)
+AND times.runner_id = runners.id
+AND runners.id = ?
+ORDER BY events.date
 
 """
+    
     q.execute(sql, [ID])
 
-    blob = q.fetchall()
+    data = q.fetchall()
 
     q.close()
     db.close()
-    #return blob
-    data = blob
     
-
-
-    otherThing = []
-    #lab = Label(myGUI, text = "time_ID,")
-    headings = ("T_ID", "E_ID", "time", "R_ID", "fname", "sname", "form", "E_ID", "L_ID", "E_name",'date', "L_ID", "L_name",'address')
-    for i in range(len(data)):
-        if i == 0:
-            for j in range(len(headings)):
-                lab = Label(viewTimesFrm, text = headings[j])
-                lab.grid(row = 1, column = j)
-        otherThing.append(data[i])
-        otherThing.append('\n')
-        lab = Label(viewTimesFrm, text = data[i])
-        #lab.pack()
-        
-        for j in range(len(data[i])):
-            lab = Label(viewTimesFrm, text = data[i][j])
-            lab.grid(row = i + 2, column = j)
-        #print(i+2)
-        #print(len(data)+2)
-
+    insertIntoTree(tree, data)
+    tree.grid(row =1,column =1, sticky = NSEW)
+    yscroll.grid(row =1, column = 1, sticky = E+NS)
 
     exitVTB.grid(row = len(data) +2, column = 1, columnspan = 3)
     viewTimesFrm.pack()
@@ -207,9 +190,16 @@ def adminOpts(opt):
     if opt == "NEWRUNNER":
         newRunnerFrm.pack()
         newEventFrm.pack_forget()
+        viewRunnerFrm.pack_forget()
     elif opt == "NEWEVENT":
         newEventFrm.pack()
         newRunnerFrm.pack_forget()
+        viewRunnerFrm.pack_forget()
+    elif opt == "VIEWRUNNER":
+        viewRunnerFrm.pack()
+        newRunnerFrm.pack_forget()
+        newEventFrm.pack_forget()
+        
         
 
 def newRunner():
@@ -249,16 +239,136 @@ def getLocs():#when adding events need the location
     db.close()
     return returned
 
-def saveEvent(eventID,locID, eventN, date):
+def saveEvent(eventID,locID, eventN, dateD,dateM,dateY):
+    date = str(dateY.get()) + '-' + str(dateM.get()) + '-' + str(dateD.get())
+    print(date)
     db = sqlite3.connect("runningDB/running.db")
     q = db.cursor()
 
     
     
-    sql = "INSERT INTO event(id, location_id, name, date) VALUES(?,?,?,?)"
-    q.execute(sql, [10,1, eventN, date])
-    print("alooman to the rescue!!!")
+    sql = "INSERT INTO events(id, location_id, name, date) VALUES(?,?,?,?)"
+    q.execute(sql, [eventID,locID, eventN, date])
+    db.commit()
+    q.close()
+    db.close()
 
+def findNextEID():
+    db = sqlite3.connect("runningDB/running.db")
+    q = db.cursor()
+    sql = "SELECT * FROM events ORDER BY id"
+    q.execute(sql)
+    allEs = q.fetchall()
+    q.close()
+    db.close()
+
+    count = 0
+    running = True
+    while running:
+        if count == len(allEs)-1:
+            running = False
+            count+=1
+        elif allEs[count][0] + 1 != allEs[count+1][0]:
+            running = False
+            count += 1
+        count+=1
+    return count
+
+def searchRunners(tree,fname = '', lname = ''):
+    db = sqlite3.connect("runningDB/running.db")
+    q = db.cursor()
+    sql ="""SELECT * FROM runners
+WHERE fName LIKE ?
+OR lName LIKE ?
+"""
+    q.execute(sql, [fname, lname])
+    runners = q.fetchall()
+    q.close()
+    db.close()
+
+    insertIntoTree(tree, runners)
+
+    
+
+def emptyTreeview(tree):
+    for i in tree.get_children():
+        tree.delete(i)
+
+def createTree(tree, cols, yscroll, widths):#len(widths) must >= len(cols)
+    #creates headings
+    for i in range(len(cols)):
+        tree.heading('#'+str(i+1), text = cols[i], anchor = W)
+    tree.column('#0', stretch=NO, minwidth=0, width=0)
+    for i in range(len(cols)):
+        tree.column('#'+str(i+1), stretch = NO, minwidth = widths[i], width = widths[i])
+    tree.configure(yscroll=yscroll.set)
+
+    
+def insertIntoTree(tree, values):
+    if len(tree.get_children()) > 0:
+        emptyTreeview(tree)
+    
+
+    for i in values:
+        tree.insert("", END, "", values=i, tag='rowFont')
+
+
+def findRunnerTimes(tree):
+    runnerA = tree.item(tree.focus())['values']#an array with the runners data
+    #just got ID name form
+
+    db = sqlite3.connect("runningDB/running.db")
+    q = db.cursor()
+    sql = """SELECT times.event_id, events.name, locations.name, times.time FROM times, events, locations, runners
+WHERE events.id = times.event_id
+AND locations.id = events.location_id
+AND runners.id = times.runner_id
+AND times.runner_id = ?
+"""
+    if len(runnerA) != 0:
+        q.execute(sql, [runnerA[0]])
+
+        times = q.fetchall()
+    q.close()
+    db.close()
+    for i in range(len(times)):
+        hours = floor(times[i][-1]/3600)
+        minutes = floor((times[i][-1]-hours*3600)/60)
+        seconds = times[i][-1]-hours*3600-minutes*60
+        times[i] = [times[i][x] for x in range(len(times[i])-1)]
+        times[i].append(str(hours) + ':' + str(minutes) + ':' + str(seconds))
+
+    return times
+
+def testUNPW3(unIn, pwIn, note):
+    global DB, runnerID, failedLogins
+    if failedLogins >= 5:
+        note.set("LOCKED OUT MWAHAHAHA")
+        return
+    elif unIn == "bob" and pwIn == "blob":
+        signInFrm.pack_forget()
+        adminFrm.pack()
+    note.set("loading")
+    db = sqlite3.connect('runningDB2/running.db')
+    q = db.cursor()
+    sql = """SELECT id, fname, lname, form FROM runners
+WHERE runners.username = ?
+AND runners.password = ?
+"""
+    q.execute(sql,[unIn, pwIn])
+    runner = q.fetchall()
+    if len(runner) !=1:
+        note.set("Username or Password are incorrect")
+    else:
+        note.set("logging in")
+        runner =  runner[0]
+        checkOut.set(runner)
+        runnerID = runner[0]
+        signInFrm.pack_forget()
+        nameEntryFrm.pack()
+        showGraph()
+    q.close()
+    db.close()
 
 runnerID = 0
 checked = False
@@ -274,14 +384,14 @@ RUNNERPW = "bob"
 
 myGUI = Tk()
 #myGUI.geometry("400x300+450+150")
-myGUI.title("times input")
+myGUI.title("Runenrs thing")
 
 
 #should only add this once they've signed in!!!
 myMenuBar = Menu(myGUI)
 fileMenu = Menu(myMenuBar)
 fileMenu.add_command(label = "Input times", command = lambda: timeEntryFrm.pack())
-fileMenu.add_command(label = "View Times", command = lambda: disTs(runnerID))
+fileMenu.add_command(label = "View Times", command = lambda: disTs(runnerID,viewTimesTree,viewTsyscroll))
 fileMenu.add_command(label = "ViewGraph", command = lambda: graphFrm.pack(side = RIGHT))
 myMenuBar.add_cascade(label = "File", menu = fileMenu)
 
@@ -305,7 +415,12 @@ passWIn = StringVar()
 passWIn = Entry(signInFrm, textvariable = passWIn)
 passWIn.grid(row = 2, column =2)
 
-signInB = Button(signInFrm,text = "Sign In", command = lambda:testUNPW(userNIn.get(), passWIn.get()))
+loginNote = StringVar()
+loginNote.set("enter your surnam and ID as username and your 5 character password")
+loginNoteLbl = Label(signInFrm, textvariable = loginNote)
+loginNoteLbl.grid(row = 3, column = 2)
+
+signInB = Button(signInFrm,text = "Sign In", command = lambda:testUNPW3(userNIn.get(), passWIn.get(),loginNote))
 signInB.grid(row = 3, column =1)
 
 
@@ -388,8 +503,16 @@ exitTimesB = Button(timeEntryFrm, text = "done", command = lambda: timeEntryFrm.
 exitTimesB.grid(row =3, column = 3)
 
 """viewing the times
-yeah it's all in the function:disTs"""
+yeah it's all in the function:disTs
+
+well i've changed a bit now so that it uses treeview
+"""
 viewTimesFrm = Frame(myGUI)
+
+viewTsCols = ("E_ID", "Event Name", "Location", "Distance", "Date", "Time", "Checked")
+viewTimesTree = Treeview(viewTimesFrm,columns = viewTsCols,selectmode = 'browse', height = 5)
+viewTsyscroll = Scrollbar(viewTimesFrm, orient='vertical', command=viewTimesTree.yview)
+createTree(viewTimesTree, viewTsCols, viewTsyscroll, (50,150,150,75,100,100,50))
 
 exitVTB = Button(viewTimesFrm, text = "Done", command = lambda: viewTimesFrm.pack_forget())
 
@@ -405,6 +528,8 @@ graphFrm = Frame(myGUI)
 def showGraph():
     print(runnerID)
     runnerData = loadData(runnerID)
+    if len(runnerData) == 0:
+        return
     dates = []
     for i in range(len(runnerData)):
         dates.append(runnerData[i][10])
@@ -476,7 +601,7 @@ newRunnerB.grid(row = 1, column = 1)
 newEventB = Button(adminFrm, text = "Add a New Event", command = lambda: adminOpts("NEWEVENT"))
 newEventB.grid(row = 1, column = 2)
 
-viewRunnerB = Button(adminFrm, text = "View Runner", command = adminViewRunner)
+viewRunnerB = Button(adminFrm, text = "View Runner", command = lambda: adminOpts("VIEWRUNNER"))
 viewRunnerB.grid(row =2, column = 1)
 #need new location or should i put that in new event
 #i could have a dropdown/text box
@@ -531,11 +656,20 @@ need a way to input a new event
 newEventFrm = Frame(myGUI)
 newEventLbl = Label(newEventFrm, text = "Add a new Event")
 newEventLbl.grid(row = 0, column = 1)
+
 newEventNLbl = Label(newEventFrm, text = "Name:")
 newEventNLbl.grid(row = 1, column=1)
 newEventNIn = StringVar()
 newEventNTB = Entry(newEventFrm, textvariable = newEventNIn)
 newEventNTB.grid(row = 1, column =2)
+
+newEventIDIn = IntVar()
+newEventIDLbl = Label(newEventFrm, text = "ID:")
+newEventIDLbl.grid(row = 1, column = 3)
+newEventIDTB = Entry(newEventFrm, textvariable = newEventIDIn)
+newEventIDTB.grid(row= 1, column = 4)
+
+
 newEventDateLbl = Label(newEventFrm, text = "Date:")
 newEventDateLbl.grid(row= 2, column =1)
 newEventDateIn = StringVar()
@@ -559,6 +693,7 @@ newEDateYTB.grid(row = 1, column =5)
 newEventLocLbl = Label(newEventFrm, text = "Location:")
 newEventLocLbl.grid(row =3, column =1)
 newEventLocIn = StringVar()
+newEventLocIn.set('0')
 locsRaw = getLocs()
 locsA = []
 for i in range(len(locsRaw)):
@@ -572,13 +707,17 @@ testA = [x for x in range(10)]
 newEventLocCB = Combobox(newEventFrm,textvariable = newEventLocIn, values = locsA,width = 30)
 newEventLocCB.grid(row = 3, column = 2)
 
-date = (newEDateDIn.get(), newEDateMIn.get(), newEDateYIn.get())
-addNewEventB = Button(newEventFrm, text = "Add The Event", command = lambda:saveEvent(10,newEventLocIn.get().split(',')[0], newEventNIn, date))
-#addNewEventB.grid(row =4 , column = 2)
+#date = (newEDateDIn.get(), newEDateMIn.get(), newEDateYIn.get())
+
+addNewEventB = Button(newEventFrm, text = "Add The Event", command = lambda:saveEvent(newEventIDIn.get(),int(newEventLocIn.get().split(',')[0]), newEventNIn.get(), newEDateDIn,newEDateMIn,newEDateYIn))
+addNewEventB.grid(row =4 , column = 2)
+
+newEventNextIDB = Button(newEventFrm, text = "find next ID", command = lambda: newEventIDIn.set(findNextEID()))
+newEventNextIDB.grid(row = 4, column = 3)
 #need to get eventID
 #need to get figure out locID based on combobox
 #and date
-
+#####newEventLocInID = newEventLocIn.get().split(',')[0]
 exitNewEventB = Button(newEventFrm, text = "bye bye", command = lambda:newEventFrm.pack_forget())
 exitNewEventB.grid(row =5, column = 1)
 
@@ -591,9 +730,65 @@ exitNewEventB.grid(row =5, column = 1)
 #these two will nick code from tInput
 #adding a time
 #adding checking time's for a user
+"""
+ok this is what the admining person can do with the runners
+they need to be able to view their data, times and data stored in DB
+change anything if needed
+and the usual stuffs that a runner can do for themselves
+
+use treeviews- nick a bit of code from urvis???
+"""
+
+viewRunnerFrm = Frame(myGUI)
+
+#ok so they type in name/form/id summat
+#i get a list of the runners
+#they chose from the list
+
+viewRFNameIn = StringVar()
+viewRSNameIn = StringVar()
+viewRNameLbl = Label(viewRunnerFrm, text = 'Name:')
+viewRNameLbl.grid(row = 1, column = 1)
+viewRFNameTB = Entry(viewRunnerFrm , textvariable = viewRFNameIn)
+viewRFNameTB.grid(row =1, column = 2)
+viewRSNameTB = Entry(viewRunnerFrm, textvariable = viewRSNameIn)
+viewRSNameTB.grid(row = 1, column = 3)
+
+
+viewRSearchB = Button(viewRunnerFrm, text = "Find Name", command = lambda:searchRunners(runnersTreeview, viewRFNameIn.get(), viewRSNameIn.get()))
+viewRSearchB.grid(row = 2, column =1)
+
+viewRFindTsB = Button(viewRunnerFrm, text = "Find Times", command = lambda: insertIntoTree(timesTreeview,findRunnerTimes(runnersTreeview)))
+viewRFindTsB.grid(row = 2, column = 2)
+
+#ok how about i have 2 treeviews
+#fist one a smaller one with the runners
+#when a runner's selected, the second one shows their times and stuff
+viewRunnersCols = ('ID', 'First Name', 'Surname', 'Form')
+runnersTreeview = Treeview(viewRunnerFrm, columns = viewRunnersCols, selectmode = "browse", height = 3)
+yscrollbar = Scrollbar(viewRunnerFrm, orient='vertical', command=runnersTreeview.yview)
+createTree(runnersTreeview, viewRunnersCols,yscrollbar,(90,150,150,150))
+
+
+#i think i need a better name
+yscrollbar.grid(row=3, column=1,columnspan = 3, sticky=E+NS)
+
+
+#insted of doing columnspan in the final prgogram just stick it on another frame
+runnersTreeview.grid(row = 3, column= 1,columnspan = 3, sticky = NSEW)
 
 
 
+viewRunnersTsCols = ('Event ID', 'Event Name', 'Location', 'Time')
+timesTreeview = Treeview(viewRunnerFrm, columns = viewRunnersTsCols, selectmode = "extended", height = 5)
+yscroll2 = Scrollbar(viewRunnerFrm, orient = "vertical", command = timesTreeview.yview)
+#that's why i need a better name
+createTree(timesTreeview, viewRunnersTsCols,yscroll2,(90,150,150,100))
+
+timesTreeview.grid(row =4, column = 1, columnspan = 3, sticky = NSEW)
+yscroll2.grid(row = 4 , column = 1, columnspan = 3, sticky=E+NS)
+
+#still need to be able to edit/add times
 
 
 
@@ -601,4 +796,5 @@ exitNewEventB.grid(row =5, column = 1)
 
 myGUI.mainloop()
 
+print("and we're done")
 
