@@ -1,11 +1,10 @@
 from tkinter import *
 from tkinter.ttk import *
-import sqlite3, time
+import sqlite3#, time
 from math import floor
+from random import randint
 
 def save():
-    #dont run unless it's been checked
-    #ie checked == True
     seconds = 0
     seconds += timeHIn.get() * 60*60
     seconds += timeMIn.get() * 60
@@ -15,65 +14,65 @@ def save():
     secondsLbl.grid(row = 3, column = 2)
 
 
-    db = sqlite3.connect("runningDB/running.db")
+    db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
-    sql = "INSERT INTO times(runner_id, event_id, time) VALUES(?,?,?)"
-    q.execute(sql, [runnerID, '4', seconds])#SHOULD HAVE TO CHECK IF THERES ALREADY AN ENTRY
+    sql = "INSERT INTO times(runner_id, event_id, time,checked) VALUES(?,?,?,?)"
+    q.execute(sql, [runnerID, eventsIn.get().split(':')[0], seconds,0])#SHOULD HAVE TO CHECK IF THERES ALREADY AN ENTRY
     print(runnerID)
     q.close()
     db.commit()
     db.close()
 
-def checkN(out):
-    #edit so that search by form first, then by sname the fname, until we have 1person
-    global runnerID
-    IDout=0
-    db = sqlite3.connect("runningDB/running.db")
-    q = db.cursor()
-    sql = "SELECT * FROM runners"
-    q.execute(sql)
-    runners = q.fetchall()
-    q.close()
-    db.close()
-
-    #print(formIn.get())
-    #first we check the form
-    if len(formIn.get()) != 0 :
-        for i in range(len(runners)):
-            #print(runners[i])
-            if runners[i][3] != formIn.get():
-                #print("kill me")
-                runners.remove(runners[i])
-    #print()
-    #print(runners)
-    if len(runners) == 1:#then we have our runner
-        out.set(runners[0])
-        #then leave this
-    else:#check names
-        runnersFN = []#firstnames
-        runnersSN = []#surnames
-        IDs = []
-        for i in range(len(runners)):
-            runnersFN.append(runners[i][1].lower())
-            runnersSN.append(runners[i][2].lower())
-            IDs.append(runners[i][0])
-            
-        for i in range(len(runnersFN if runnersFN != [] else runenrsSN)):#why would runnersFN ever be empty??
-            if fnameIn.get().lower() == runnersFN[i] and snameIn.get().lower() == runnersSN[i]:
-            #if nameIn.get() == runnersN[i] or nameIn.get() == runnersFN:
-                #print("we has a match")
-                #the one in runners with ID == IDs[i]
-                #print(IDs[i])
-                IDout = IDs[i]
-        for i in range(len(runners)):
-            if runners[i][0] == IDout:
-                out.set(runners[i])
-                runnerID = IDout
-
-                #showGraph()
+##def checkN(out):
+##    #edit so that search by form first, then by sname the fname, until we have 1person
+##    global runnerID
+##    IDout=0
+##    db = sqlite3.connect("runningDB/running.db")
+##    q = db.cursor()
+##    sql = "SELECT * FROM runners"
+##    q.execute(sql)
+##    runners = q.fetchall()
+##    q.close()
+##    db.close()
+##
+##    #print(formIn.get())
+##    #first we check the form
+##    if len(formIn.get()) != 0 :
+##        for i in range(len(runners)):
+##            #print(runners[i])
+##            if runners[i][3] != formIn.get():
+##                #print("kill me")
+##                runners.remove(runners[i])
+##    #print()
+##    #print(runners)
+##    if len(runners) == 1:#then we have our runner
+##        out.set(runners[0])
+##        #then leave this
+##    else:#check names
+##        runnersFN = []#firstnames
+##        runnersSN = []#surnames
+##        IDs = []
+##        for i in range(len(runners)):
+##            runnersFN.append(runners[i][1].lower())
+##            runnersSN.append(runners[i][2].lower())
+##            IDs.append(runners[i][0])
+##            
+##        for i in range(len(runnersFN if runnersFN != [] else runenrsSN)):#why would runnersFN ever be empty??
+##            if fnameIn.get().lower() == runnersFN[i] and snameIn.get().lower() == runnersSN[i]:
+##            #if nameIn.get() == runnersN[i] or nameIn.get() == runnersFN:
+##                #print("we has a match")
+##                #the one in runners with ID == IDs[i]
+##                #print(IDs[i])
+##                IDout = IDs[i]
+##        for i in range(len(runners)):
+##            if runners[i][0] == IDout:
+##                out.set(runners[i])
+##                runnerID = IDout
+##
+##                #showGraph()
 
 def getEvents():#the events in the dropdown box
-    db = sqlite3.connect("runningDB/running.db")
+    db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
     sql = "SELECT * FROM events"
     q.execute(sql)
@@ -126,7 +125,7 @@ def mapRange(val, start0, stop0, start1, stop1):
 def loadData(ID):
 ##    Fname = input("first name of runner:  ")
 ##    Lname = input("last name of runner:  ")
-    db = sqlite3.connect("runningDB/running.db")
+    db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
     sql = """ SELECT * FROM times, runners, events, locations
 WHERE times.runner_id = runners.id
@@ -201,35 +200,42 @@ def adminOpts(opt):
         newEventFrm.pack_forget()
         
         
-
-def newRunner():
-    print("yep this is how you create a new runner")
-def newEvent():
-    print("clearly creating a new event")
-def newTime():
-    print("use code from tInputs")
-def checkTimes():
-    print("""the runners are able to enter their own times
-this is so Dr.H can check it""")
-def adminViewRunner():
-    print("this is getting rid of the prev 2")
-    print("maybe i can still use the things in the menu")
+###umm why are these still here???
+##def newRunner():
+##    print("yep this is how you create a new runner")
+##def newEvent():
+##    print("clearly creating a new event")
+##def newTime():
+##    print("use code from tInputs")
+##def checkTimes():
+##    print("""the runners are able to enter their own times
+##this is so Dr.H can check it""")
+##def adminViewRunner():
+##    print("this is getting rid of the prev 2")
+##    print("maybe i can still use the things in the menu")
 
 
 def addNewRunner(ID, form, fname, lname):
-    db = sqlite3.connect("runningDB/running.db")
+    un = lname+str(ID)
+    pw = genRanLetters(5)
+    db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
     
-    sql = "INSERT INTO runners(id, fName, lName, form) VALUES(?,?,?,?)"
-    q.execute(sql, [ID, fname, lname, form])
+    sql = "INSERT INTO runners(id, fName, lName, form,username,password) VALUES(?,?,?,?,?,?)"
+    q.execute(sql, [ID, fname, lname, form,un,pw])
     
     db.commit()
     q.close()
     db.close()
     print("stuffs")
+    print("need to output UN and PW aswell")
+
+def genRanLetters(l):
+    string = ''.join([chr(randint(65,90)) if randint(0,1) == 0 else chr(randint(97,122)) for x in range(l)])
+    return string
 
 def getLocs():#when adding events need the location
-    db = sqlite3.connect("runningDB/running.db")
+    db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
     sql = "SELECT * FROM locations"
     q.execute(sql)
@@ -242,7 +248,7 @@ def getLocs():#when adding events need the location
 def saveEvent(eventID,locID, eventN, dateD,dateM,dateY):
     date = str(dateY.get()) + '-' + str(dateM.get()) + '-' + str(dateD.get())
     print(date)
-    db = sqlite3.connect("runningDB/running.db")
+    db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
 
     
@@ -254,7 +260,7 @@ def saveEvent(eventID,locID, eventN, dateD,dateM,dateY):
     db.close()
 
 def findNextEID():
-    db = sqlite3.connect("runningDB/running.db")
+    db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
     sql = "SELECT * FROM events ORDER BY id"
     q.execute(sql)
@@ -275,7 +281,7 @@ def findNextEID():
     return count
 
 def searchRunners(tree,fname = '', lname = ''):
-    db = sqlite3.connect("runningDB/running.db")
+    db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
     sql ="""SELECT * FROM runners
 WHERE fName LIKE ?
@@ -317,7 +323,7 @@ def findRunnerTimes(tree):
     runnerA = tree.item(tree.focus())['values']#an array with the runners data
     #just got ID name form
 
-    db = sqlite3.connect("runningDB/running.db")
+    db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
     sql = """SELECT times.event_id, events.name, locations.name, times.time FROM times, events, locations, runners
 WHERE events.id = times.event_id
@@ -389,11 +395,11 @@ myGUI.title("Runenrs thing")
 
 #should only add this once they've signed in!!!
 myMenuBar = Menu(myGUI)
-fileMenu = Menu(myMenuBar)
+fileMenu = Menu(myMenuBar)#umm rename???
 fileMenu.add_command(label = "Input times", command = lambda: timeEntryFrm.pack())
 fileMenu.add_command(label = "View Times", command = lambda: disTs(runnerID,viewTimesTree,viewTsyscroll))
 fileMenu.add_command(label = "ViewGraph", command = lambda: graphFrm.pack(side = RIGHT))
-myMenuBar.add_cascade(label = "File", menu = fileMenu)
+myMenuBar.add_cascade(label = "Runner Options", menu = fileMenu)
 
 myGUI.config(menu = myMenuBar)
 
@@ -471,12 +477,14 @@ events = StringVar()
 #cant do this until urv replys
 # i need to get the vals from the list gen in getEvents() and put them in the OM
 #i'm using a combobox
+eventsIn = StringVar()
+eventsIn.set("No Event Selected")
 eventsRaw = getEvents()
 eventsA = []
 for i in range(len(eventsRaw)):
     #print(eventsRaw[i])
-    eventsA.append(str(eventsRaw[i][2])+':'+eventsRaw[i][3])
-eventsCB = Combobox(timeEntryFrm, values = eventsA)
+    eventsA.append(str(eventsRaw[i][0])+':'+str(eventsRaw[i][2])+':'+eventsRaw[i][4])
+eventsCB = Combobox(timeEntryFrm, values = eventsA, textvariable = eventsIn)
 eventsCB.grid(row = 1, column =2, columnspan = 3)
 testThingLbl = Label(timeEntryFrm, textvariable = eventsCB.current())
 testThingLbl.grid(row = 4, column =2)
@@ -526,23 +534,27 @@ i remmeber i had a problem that it may be too big to view on the screen
 need to solve taht"""
 graphFrm = Frame(myGUI)
 def showGraph():
-    print(runnerID)
+    #print(runnerID)
     runnerData = loadData(runnerID)
     if len(runnerData) == 0:
         return
+    #else:
+        #print("ALOO     IS    TESTING    AN     IDIOT")
+        #print(runnerData)
+        #print("ALOO     IS    TESTING    AN     IDIOT")
     dates = []
     for i in range(len(runnerData)):
-        dates.append(runnerData[i][10])
-    print(dates)
+        dates.append(runnerData[i][14])
+    #print(dates)
     times = []
     for i in range(len(runnerData)):
         times.append(runnerData[i][2])
-    print(times)
-    for i in runnerData:
-        print(i)
+    #print(times)
+##    for i in runnerData:
+##        print(i)
 
     yMax = floor((max(times)/10**(len(str(max(times)))-1)+1))*10**(len(str(max(times)))-1)
-    print(yMax)
+    #print(yMax)
     windowW =  400
     windowH = 500
     margin = 20
@@ -713,7 +725,7 @@ addNewEventB = Button(newEventFrm, text = "Add The Event", command = lambda:save
 addNewEventB.grid(row =4 , column = 2)
 
 newEventNextIDB = Button(newEventFrm, text = "find next ID", command = lambda: newEventIDIn.set(findNextEID()))
-newEventNextIDB.grid(row = 4, column = 3)
+newEventNextIDB.grid(row = 2, column = 4)#so it's under the ID TB
 #need to get eventID
 #need to get figure out locID based on combobox
 #and date
@@ -754,28 +766,34 @@ viewRFNameTB.grid(row =1, column = 2)
 viewRSNameTB = Entry(viewRunnerFrm, textvariable = viewRSNameIn)
 viewRSNameTB.grid(row = 1, column = 3)
 
+viewRIDIn = IntVar()
+viewRIDLbl = Label(viewRunnerFrm, text = "ID:")
+viewRIDLbl.grid(row = 2, column = 1)
+viewRIDTB = Entry(viewRunnerFrm, textvariable = viewRIDIn, width = 4)
+viewRIDTB.grid(row = 2, column = 2)
+
 
 viewRSearchB = Button(viewRunnerFrm, text = "Find Name", command = lambda:searchRunners(runnersTreeview, viewRFNameIn.get(), viewRSNameIn.get()))
-viewRSearchB.grid(row = 2, column =1)
+viewRSearchB.grid(row = 3, column =1)
 
 viewRFindTsB = Button(viewRunnerFrm, text = "Find Times", command = lambda: insertIntoTree(timesTreeview,findRunnerTimes(runnersTreeview)))
-viewRFindTsB.grid(row = 2, column = 2)
+viewRFindTsB.grid(row = 3, column = 2)
 
 #ok how about i have 2 treeviews
 #fist one a smaller one with the runners
 #when a runner's selected, the second one shows their times and stuff
-viewRunnersCols = ('ID', 'First Name', 'Surname', 'Form')
+viewRunnersCols = ('ID', 'First Name', 'Surname', 'Form',"username","password")
 runnersTreeview = Treeview(viewRunnerFrm, columns = viewRunnersCols, selectmode = "browse", height = 3)
 yscrollbar = Scrollbar(viewRunnerFrm, orient='vertical', command=runnersTreeview.yview)
-createTree(runnersTreeview, viewRunnersCols,yscrollbar,(90,150,150,150))
+createTree(runnersTreeview, viewRunnersCols,yscrollbar,(90,150,150,150,150,90))
 
 
 #i think i need a better name
-yscrollbar.grid(row=3, column=1,columnspan = 3, sticky=E+NS)
+yscrollbar.grid(row=4, column=1,columnspan = 3, sticky=E+NS)
 
 
 #insted of doing columnspan in the final prgogram just stick it on another frame
-runnersTreeview.grid(row = 3, column= 1,columnspan = 3, sticky = NSEW)
+runnersTreeview.grid(row = 4, column= 1,columnspan = 3, sticky = NSEW)
 
 
 
@@ -785,8 +803,8 @@ yscroll2 = Scrollbar(viewRunnerFrm, orient = "vertical", command = timesTreeview
 #that's why i need a better name
 createTree(timesTreeview, viewRunnersTsCols,yscroll2,(90,150,150,100))
 
-timesTreeview.grid(row =4, column = 1, columnspan = 3, sticky = NSEW)
-yscroll2.grid(row = 4 , column = 1, columnspan = 3, sticky=E+NS)
+timesTreeview.grid(row =5, column = 1, columnspan = 3, sticky = NSEW)
+yscroll2.grid(row = 5 , column = 1, columnspan = 3, sticky=E+NS)
 
 #still need to be able to edit/add times
 
