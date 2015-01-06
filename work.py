@@ -10,17 +10,31 @@ def save():
     seconds += timeMIn.get() * 60
     seconds += timeSIn.get()
     print(seconds)
-    secondsLbl = Label(timeEntryFrm, text = str(seconds))
+    savingNote = StringVar()
+    savingNote.set(str(seconds))
+    secondsLbl = Label(timeEntryFrm, textvariable = savingNote)
     secondsLbl.grid(row = 3, column = 2)
-
 
     db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
-    sql = "INSERT INTO times(runner_id, event_id, time,checked) VALUES(?,?,?,?)"
-    q.execute(sql, [runnerID, eventsIn.get().split(':')[0], seconds,0])#SHOULD HAVE TO CHECK IF THERES ALREADY AN ENTRY
-    print(runnerID)
+
+    sql = """SELECT runner_id, event_id FROM times
+WHERE runner_id = ?
+
+"""
+    q.execute(sql, [runnerID])
+    times = q.fetchall()
+    exists = False
+    for i in range(len(times)):
+        if times[1] == events.get().split(':')[0]:
+            exists = True
+            savingNote.set("a record for this event already exists")
+    if not exists:
+        sql = "INSERT INTO times(runner_id, event_id, time,checked) VALUES(?,?,?,?)"
+        q.execute(sql, [runnerID, eventsIn.get().split(':')[0], seconds,0])#SHOULD HAVE TO CHECK IF THERES ALREADY AN ENTRY
+        db.commit()
+    #print(runnerID)
     q.close()
-    db.commit()
     db.close()
 
 ##def checkN(out):
@@ -69,7 +83,7 @@ def save():
 ##                out.set(runners[i])
 ##                runnerID = IDout
 ##
-##                #showGraph()
+##                #genGraph()
 
 def getEvents():#the events in the dropdown box
     db = sqlite3.connect("runningDB2/running.db")
@@ -87,7 +101,7 @@ def disTs(ID, tree, yscroll):#display times
     db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
 
-    sql = """ SELECT events.id, events.name, locations.name, events.length, events.date, times.time, times.checked
+    sql = """ SELECT events.id, events.name, locations.name, locations.length, events.date, times.time, times.checked
 FROM events, locations, times, runners
 WHERE events.id = times.event_id
 AND events.location_id = locations.id
@@ -122,7 +136,7 @@ def mapRange(val, start0, stop0, start1, stop1):
     return finalV
 
 
-def loadData(ID):
+def loadData(ID,locID):
 ##    Fname = input("first name of runner:  ")
 ##    Lname = input("last name of runner:  ")
     db = sqlite3.connect("runningDB2/running.db")
@@ -132,57 +146,57 @@ WHERE times.runner_id = runners.id
 AND events.location_id = locations.id
 AND times.event_id = events.id
 AND runners.id = ?
-AND locations.id = 2
+AND locations.id = ?
 """
     #q.execute(sql, [Fname, Lname])
-    q.execute(sql,[ID])
+    q.execute(sql,[ID,locID])
     blob = q.fetchall()
 
     q.close()
     db.close()
     return blob
 
-def testUNPW(unIn,pwIn):
-    global runnerID#need to figure out what's going to happen here
-    #ok so we need to check UN and PW
-    global failedLogins
-    if failedLogins >=5:
-        print("tried more than 5 times. LOCKED OUT")
-    elif unIn != UN and unIn != RUNNERUN:
-        print("wrong UN")
-        failedLogins += 1
-    elif unIn == UN and pwIn != PW:
-        print("wrong PW")
-        failedLogins +=1
-    elif unIn == RUNNERUN and pwIn != RUNNERPW:
-        print("wrong PW")
-        failedLogins +=1
-
-
-    
-##    elif pwIn != PW and pwIn != RUNNERPW:
+##def testUNPW(unIn,pwIn):
+##    global runnerID#need to figure out what's going to happen here
+##    #ok so we need to check UN and PW
+##    global failedLogins
+##    if failedLogins >=5:
+##        print("tried more than 5 times. LOCKED OUT")
+##    elif unIn != UN and unIn != RUNNERUN:
+##        print("wrong UN")
+##        failedLogins += 1
+##    elif unIn == UN and pwIn != PW:
 ##        print("wrong PW")
 ##        failedLogins +=1
-    elif unIn == UN and pwIn == PW:
-        print("we're in")
-        signInFrm.pack_forget()
-        adminFrm.pack()
-    elif unIn == RUNNERUN and RUNNERPW:
-        print("go to the tInputs stuffs")
-        signInFrm.pack_forget()
-        nameEntryFrm.pack()
-        checkOut.set("1 Mickey Mouse 5ABC")#needs changing
-        runnerID = 1#again this needs changing
-        showGraph()
-        """that should really be retrieved from the database
-SELECT stuffs FROM runners WHERE UN = (?) AND PW = (?)
-obviously won't be UN/PW in DB
-?s will be unIn, pwIn
-"""
-        
-        
-    else:
-        print("shouldn't be here")
+##    elif unIn == RUNNERUN and pwIn != RUNNERPW:
+##        print("wrong PW")
+##        failedLogins +=1
+##
+##
+##    
+####    elif pwIn != PW and pwIn != RUNNERPW:
+####        print("wrong PW")
+####        failedLogins +=1
+##    elif unIn == UN and pwIn == PW:
+##        print("we're in")
+##        signInFrm.pack_forget()
+##        adminFrm.pack()
+##    elif unIn == RUNNERUN and RUNNERPW:
+##        print("go to the tInputs stuffs")
+##        signInFrm.pack_forget()
+##        nameEntryFrm.pack()
+##        checkOut.set("1 Mickey Mouse 5ABC")#needs changing
+##        runnerID = 1#again this needs changing
+##        genGraph()
+##        """that should really be retrieved from the database
+##SELECT stuffs FROM runners WHERE UN = (?) AND PW = (?)
+##obviously won't be UN/PW in DB
+##?s will be unIn, pwIn
+##"""
+##        
+##        
+##    else:
+##        print("shouldn't be here")
 
 
 def adminOpts(opt):
@@ -227,8 +241,9 @@ def addNewRunner(ID, form, fname, lname):
     db.commit()
     q.close()
     db.close()
-    print("stuffs")
-    print("need to output UN and PW aswell")
+    #print("stuffs")
+    unpwNote.set("Username: "+un+", Password= "+pw)
+    #print("need to output UN and PW aswell")
 
 def genRanLetters(l):
     string = ''.join([chr(randint(65,90)) if randint(0,1) == 0 else chr(randint(97,122)) for x in range(l)])
@@ -250,11 +265,9 @@ def saveEvent(eventID,locID, eventN, dateD,dateM,dateY):
     print(date)
     db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
-
-    
     
     sql = "INSERT INTO events(id, location_id, name, date) VALUES(?,?,?,?)"
-    q.execute(sql, [eventID,locID, eventN, date])
+    q.execute(sql, [eventID,locID, eventN,date])
     db.commit()
     q.close()
     db.close()
@@ -372,9 +385,14 @@ AND runners.password = ?
         runnerID = runner[0]
         signInFrm.pack_forget()
         nameEntryFrm.pack()
-        showGraph()
+        #genGraph()
     q.close()
     db.close()
+
+
+def selectRunner(tree):
+    global runnerID
+    runnerID = tree.item(tree.focus())['values'][0]
 
 runnerID = 0
 checked = False
@@ -385,6 +403,15 @@ failedLogins = 0
 RUNNERUN = "blob"
 RUNNERPW = "bob"
 
+
+locsRaw = getLocs()
+locsA = []
+for i in range(len(locsRaw)):
+    loc = ''
+    #print(locsRaw[i])
+    for j in range(len(locsRaw[i])):
+        loc += str(locsRaw[i][j])+ ', '
+    locsA.append(loc)
 
 
 
@@ -483,7 +510,7 @@ eventsRaw = getEvents()
 eventsA = []
 for i in range(len(eventsRaw)):
     #print(eventsRaw[i])
-    eventsA.append(str(eventsRaw[i][0])+':'+str(eventsRaw[i][2])+':'+eventsRaw[i][4])
+    eventsA.append(str(eventsRaw[i][0])+':'+str(eventsRaw[i][2])+':'+eventsRaw[i][3])
 eventsCB = Combobox(timeEntryFrm, values = eventsA, textvariable = eventsIn)
 eventsCB.grid(row = 1, column =2, columnspan = 3)
 testThingLbl = Label(timeEntryFrm, textvariable = eventsCB.current())
@@ -530,12 +557,35 @@ exitVTB = Button(viewTimesFrm, text = "Done", command = lambda: viewTimesFrm.pac
 
 """ok the graph
 this may be a bit tricky
-i remmeber i had a problem that it may be too big to view on the screen
-need to solve taht"""
+i desgined this in a really bad way"""
 graphFrm = Frame(myGUI)
-def showGraph():
+
+graphLocIn = StringVar()
+graphLocIn.set("0,choose a location")
+findGraphLoc = Combobox(graphFrm, textvariable = graphLocIn, values = locsA)
+findGraphLoc.pack()
+
+selectLocB = Button(graphFrm, text = "Select Location", command = lambda:genGraph())
+selectLocB.pack()
+
+graphFrames = []
+exitGraphsBs = []
+
+
+
+def genGraph():
     #print(runnerID)
-    runnerData = loadData(runnerID)
+    
+    graphFrames.append(Frame(graphFrm))
+    graphFrames[-1].pack(side = LEFT)
+
+
+    localishButton = Button(graphFrames[-1], text = "dones here", command = lambda: destroyGraph(graphFrames.index(graphFrames[-1])))
+    
+    exitGraphsBs.append(localishButton)
+    exitGraphsBs[-1].pack()
+    
+    runnerData = loadData(runnerID, graphLocIn.get().split(',')[0])
     if len(runnerData) == 0:
         return
     #else:
@@ -562,7 +612,7 @@ def showGraph():
     sqry = int((windowH - margin)/10)
     Tsize = 12
 
-    graphC = Canvas(master = graphFrm, width = windowW, height = windowH, bg = "grey")#C for canvas
+    graphC = Canvas(master = graphFrames[-1], width = windowW, height = windowH, bg = "grey")#C for canvas
     graphC.pack()
 
     #axis
@@ -572,14 +622,14 @@ def showGraph():
     for i in range(windowH - margin, 0, -sqry):
         graphC.create_line(0,i, windowW, i)
         #yLbl = Label(myGUI, text = str(i))
-        yLbl = Label(graphFrm, text = str(mapRange(windowH - i, 20, windowH, 0,yMax)))
+        yLbl = Label(graphFrames[-1], text = str(mapRange(windowH - i, 20, windowH, 0,yMax)))
         yLbl.place(x = 0, y = i)
     #x-axis
     for i in range(margin, windowW, sqrx):
         graphC.create_line(i, 0, i, windowH)
-        xLbl = Label(graphFrm, text = str((i-margin)/sqrx))
+        xLbl = Label(graphFrames[-1], text = str((i-margin)/sqrx))
         if (i-margin)/sqrx < len(dates):
-            xLbl = Label(graphFrm,  text = dates[int((i-margin)/sqrx)])
+            xLbl = Label(graphFrames[-1],  text = dates[int((i-margin)/sqrx)])
             
         xLbl.place(x = i,y = windowH-margin)
         
@@ -591,10 +641,20 @@ def showGraph():
         #xp???
         
         graphC.create_line(i*sqrx + margin, windowH - yp, (i+1)*sqrx + margin, windowH - yp2, fill = "blue")
-    exitGraphB.pack()
+    
+    
 
+def destroyGraph(num):
+    global exitGraphBs
+    print(num)
+    print(graphFrames,exitGraphsBs)
+    graphFrames[num].pack_forget()
+    graphFrames.remove(graphFrames[num])
+    exitGraphsBs.remove(exitGraphsBs[num])
+
+        
 exitGraphB = Button(graphFrm, text = "Done", command = lambda: graphFrm.pack_forget())
-
+exitGraphB.pack()
 
 
 """the admin frame?
@@ -646,14 +706,18 @@ newSnameIn = StringVar()
 newSnameTB = Entry(newRunnerFrm, textvariable = newSnameIn, width = 10)
 newSnameTB.grid(row = 2, column =3)
 
+unpwNote = StringVar()
+unpwNoteLbl = Label(newRunnerFrm, textvariable = unpwNote)
+unpwNoteLbl.grid(row = 3, column = 1, columnspan = 4)
+
 #ok now we actually gotta add him
 #i'm gonna do this in the other thign sto start with so i don't mess up anything here
-addRunnerB = Button(newRunnerFrm, text = "add runner", command = lambda:addNewRunner(newIDIn.get(),newFormIn.get(), newFnameIn.get(),newSnameIn.get(), ))
-addRunnerB.grid(row = 3, column =2)
+addRunnerB = Button(newRunnerFrm, text = "Add Runner", command = lambda:addNewRunner(newIDIn.get(),newFormIn.get(), newFnameIn.get(),newSnameIn.get(), ))
+addRunnerB.grid(row = 4, column =1)
 
 
-exitNewRunnerB = Button(newRunnerFrm, text = "done adding", command = lambda: newRunnerFrm.pack_forget())
-exitNewRunnerB.grid(row = 6, column  = 1)
+exitNewRunnerB = Button(newRunnerFrm, text = "Done Adding", command = lambda: newRunnerFrm.pack_forget())
+exitNewRunnerB.grid(row = 4, column  = 2)
 
 """
 adding an event to the DB
@@ -706,18 +770,19 @@ newEventLocLbl = Label(newEventFrm, text = "Location:")
 newEventLocLbl.grid(row =3, column =1)
 newEventLocIn = StringVar()
 newEventLocIn.set('0')
-locsRaw = getLocs()
-locsA = []
-for i in range(len(locsRaw)):
-    loc = ''
-    #print(locsRaw[i])
-    for j in range(len(locsRaw[i])):
-        loc += str(locsRaw[i][j])+ ', '
-    locsA.append(loc)
+
+#the locA was originally here but i had to move it earlier up
+
 #print(locsA)
-testA = [x for x in range(10)]
+#testA = [x for x in range(10)]
 newEventLocCB = Combobox(newEventFrm,textvariable = newEventLocIn, values = locsA,width = 30)
 newEventLocCB.grid(row = 3, column = 2)
+
+##newEventDistIn = IntVar()
+##newEventDistLbl = Label(newEventFrm, text = "Distance(km)")
+##newEventDistTB = Entry(newEventFrm, textvariable = newEventDistIn)
+##newEventDistLbl.grid(row = 3, column = 3)
+##newEventDistTB.grid(row = 3, column = 4)
 
 #date = (newEDateDIn.get(), newEDateMIn.get(), newEDateYIn.get())
 
@@ -776,8 +841,11 @@ viewRIDTB.grid(row = 2, column = 2)
 viewRSearchB = Button(viewRunnerFrm, text = "Find Name", command = lambda:searchRunners(runnersTreeview, viewRFNameIn.get(), viewRSNameIn.get()))
 viewRSearchB.grid(row = 3, column =1)
 
-viewRFindTsB = Button(viewRunnerFrm, text = "Find Times", command = lambda: insertIntoTree(timesTreeview,findRunnerTimes(runnersTreeview)))
-viewRFindTsB.grid(row = 3, column = 2)
+#viewRFindTsB = Button(viewRunnerFrm, text = "Find Times", command = lambda: insertIntoTree(timesTreeview,findRunnerTimes(runnersTreeview)))
+#viewRFindTsB.grid(row = 3, column = 2)
+
+viewRSelRunnB = Button(viewRunnerFrm, text = "SelectRunner", command = lambda: selectRunner(runnersTreeview))
+viewRSelRunnB.grid(row =3, column =2)
 
 #ok how about i have 2 treeviews
 #fist one a smaller one with the runners
@@ -796,18 +864,21 @@ yscrollbar.grid(row=4, column=1,columnspan = 3, sticky=E+NS)
 runnersTreeview.grid(row = 4, column= 1,columnspan = 3, sticky = NSEW)
 
 
+##
+##viewRunnersTsCols = ('Event ID', 'Event Name', 'Location', 'Time')
+##timesTreeview = Treeview(viewRunnerFrm, columns = viewRunnersTsCols, selectmode = "extended", height = 5)
+##yscroll2 = Scrollbar(viewRunnerFrm, orient = "vertical", command = timesTreeview.yview)
+###that's why i need a better name
+##createTree(timesTreeview, viewRunnersTsCols,yscroll2,(90,150,150,100))
+##
+##timesTreeview.grid(row =5, column = 1, columnspan = 3, sticky = NSEW)
+##yscroll2.grid(row = 5 , column = 1, columnspan = 3, sticky=E+NS)
 
-viewRunnersTsCols = ('Event ID', 'Event Name', 'Location', 'Time')
-timesTreeview = Treeview(viewRunnerFrm, columns = viewRunnersTsCols, selectmode = "extended", height = 5)
-yscroll2 = Scrollbar(viewRunnerFrm, orient = "vertical", command = timesTreeview.yview)
-#that's why i need a better name
-createTree(timesTreeview, viewRunnersTsCols,yscroll2,(90,150,150,100))
-
-timesTreeview.grid(row =5, column = 1, columnspan = 3, sticky = NSEW)
-yscroll2.grid(row = 5 , column = 1, columnspan = 3, sticky=E+NS)
 
 #still need to be able to edit/add times
-
+#luckily earlier i was stupid and used the public runnerID thing
+#now i can just use that
+#booya 
 
 
 
