@@ -394,6 +394,16 @@ def selectRunner(tree):
     global runnerID
     runnerID = tree.item(tree.focus())['values'][0]
 
+def addNewLoc(ID,name,addr,dist):
+    #print(ID,name,addr,dist)
+    db = sqlite3.connect("runningDB2/running.db")
+    q = db.cursor()
+    sql = "INSERT INTO locations(id,name,address,length) VALUES(?,?,?,?)"
+    q.execute(sql, [ID,name,addr,dist])
+    db.commit()
+    q.close()
+    db.close()
+
 runnerID = 0
 checked = False
 
@@ -414,6 +424,9 @@ for i in range(len(locsRaw)):
     locsA.append(loc)
 
 
+    
+
+
 
 myGUI = Tk()
 #myGUI.geometry("400x300+450+150")
@@ -425,7 +438,7 @@ myMenuBar = Menu(myGUI)
 fileMenu = Menu(myMenuBar)#umm rename???
 fileMenu.add_command(label = "Input times", command = lambda: timeEntryFrm.pack())
 fileMenu.add_command(label = "View Times", command = lambda: disTs(runnerID,viewTimesTree,viewTsyscroll))
-fileMenu.add_command(label = "ViewGraph", command = lambda: graphFrm.pack(side = RIGHT))
+fileMenu.add_command(label = "ViewGraph", command = lambda: graphFrm.pack())
 myMenuBar.add_cascade(label = "Runner Options", menu = fileMenu)
 
 myGUI.config(menu = myMenuBar)
@@ -605,12 +618,12 @@ def genGraph():
 
     yMax = floor((max(times)/10**(len(str(max(times)))-1)+1))*10**(len(str(max(times)))-1)
     #print(yMax)
-    windowW =  400
-    windowH = 500
+    windowW =  300
+    windowH = 400
     margin = 20
     sqrx = int((windowW - margin)/10)
     sqry = int((windowH - margin)/10)
-    Tsize = 12
+    Tsize = 11
 
     graphC = Canvas(master = graphFrames[-1], width = windowW, height = windowH, bg = "grey")#C for canvas
     graphC.pack()
@@ -646,8 +659,8 @@ def genGraph():
 
 def destroyGraph(num):
     global exitGraphBs
-    print(num)
-    print(graphFrames,exitGraphsBs)
+    #print(num)
+    #print(graphFrames,exitGraphsBs)
     graphFrames[num].pack_forget()
     graphFrames.remove(graphFrames[num])
     exitGraphsBs.remove(exitGraphsBs[num])
@@ -725,7 +738,7 @@ need the event's name/location/date
 i've had to put a frame on the frame in order to have the date input all look pretty
 the way i've got locID from the CB may create problems - so check that
 
-need a way to input a new event
+need a way to input a new location
 
 """
 #adding a new event
@@ -778,13 +791,8 @@ newEventLocIn.set('0')
 newEventLocCB = Combobox(newEventFrm,textvariable = newEventLocIn, values = locsA,width = 30)
 newEventLocCB.grid(row = 3, column = 2)
 
-##newEventDistIn = IntVar()
-##newEventDistLbl = Label(newEventFrm, text = "Distance(km)")
-##newEventDistTB = Entry(newEventFrm, textvariable = newEventDistIn)
-##newEventDistLbl.grid(row = 3, column = 3)
-##newEventDistTB.grid(row = 3, column = 4)
-
-#date = (newEDateDIn.get(), newEDateMIn.get(), newEDateYIn.get())
+createNewLocB = Button(newEventFrm, text = "need a new Location", command = lambda:newLocFrm.pack())
+createNewLocB.grid(row =3, column = 3)
 
 addNewEventB = Button(newEventFrm, text = "Add The Event", command = lambda:saveEvent(newEventIDIn.get(),int(newEventLocIn.get().split(',')[0]), newEventNIn.get(), newEDateDIn,newEDateMIn,newEDateYIn))
 addNewEventB.grid(row =4 , column = 2)
@@ -797,6 +805,47 @@ newEventNextIDB.grid(row = 2, column = 4)#so it's under the ID TB
 #####newEventLocInID = newEventLocIn.get().split(',')[0]
 exitNewEventB = Button(newEventFrm, text = "bye bye", command = lambda:newEventFrm.pack_forget())
 exitNewEventB.grid(row =5, column = 1)
+
+
+"""
+we're adding a new location here
+this is sort part of the above section
+it'll be in it's own frame but'll be used when a button's pressed on newEventFrm
+"""
+
+newLocFrm = Frame(myGUI)
+#interesting i'm not doing this somewhere else first
+newLocNameLbl = Label(newLocFrm, text = "name:")
+newLocNameLbl.grid(row = 1, column =1)
+newLocNameIn = StringVar()
+newLocNameTB = Entry(newLocFrm, textvariable = newLocNameIn)
+newLocNameTB.grid(row =1, column = 2)
+
+newLocIDLbl = Label(newLocFrm, text = "ID:")
+newLocIDLbl.grid(row = 1, column =3)
+newLocIDIn = IntVar()
+newLocIDTB = Entry(newLocFrm, textvariable = newLocIDIn)
+newLocIDTB.grid(row = 1,column = 4)
+
+newLocAddrLbl = Label(newLocFrm, text = "Address:")
+newLocAddrLbl.grid(row =2, column = 1)
+newLocAddrIn = StringVar()
+newLocAddrTB = Entry(newLocFrm, textvariable = newLocAddrIn)
+newLocAddrTB.grid(row =2, column = 2)
+
+newLocDistLbl = Label(newLocFrm, text = "Distance(km):")
+newLocDistLbl.grid(row =2,column = 3)
+newLocDistIn = DoubleVar()
+newLocDistTB = Entry(newLocFrm, textvariable = newLocDistIn)
+newLocDistTB.grid(row = 2,column = 4)
+
+addNewLocB = Button(newLocFrm, text = "Add Location", command = lambda:addNewLoc(newLocIDIn.get(),newLocNameIn.get(),newLocAddrIn.get(),newLocDistIn.get()))
+addNewLocB.grid(row =3, column = 1)
+
+exitNewLocB = Button(newLocFrm, text = "Done", command = lambda: newLocFrm.pack_forget())
+exitNewLocB.grid(row = 4,column = 1)
+
+
 
 
 
@@ -875,11 +924,8 @@ runnersTreeview.grid(row = 4, column= 1,columnspan = 3, sticky = NSEW)
 ##yscroll2.grid(row = 5 , column = 1, columnspan = 3, sticky=E+NS)
 
 
-#still need to be able to edit/add times
-#luckily earlier i was stupid and used the public runnerID thing
-#now i can just use that
-#booya 
-
+#need to add location?
+#think i'm going to include this in the newEvent section
 
 
 
