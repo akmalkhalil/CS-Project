@@ -365,7 +365,8 @@ def selectRunner(tree):
     global runnerID
     if tree.focus() != '':
         runnerID = tree.item(tree.focus())['values'][0]
-        selectedUserOut.set(tree.item(tree.focus())['values'][1]+' '+tree.item(tree.focus())['values'][2])
+        selectedUserOut.set(str(tree.item(tree.focus())['values'][1])+' '+str(tree.item(tree.focus())['values'][2]))
+        adminRunnerDBOptsTL.deiconify()
 
 def addNewLoc(ID,name,addr,dist):
     #print(ID,name,addr,dist)
@@ -382,16 +383,53 @@ def editRunnerDetails(ID,runnerDetailsA):
     #stick it in Entry boxes
     #then a save changes button
     #ugh i'm gonna have a frame within a frame within a frame on the main GUI
-
-    db = sqlite3.connect('runningDB/running.db')
+    
+    db = sqlite3.connect('runningDB2/running.db')
     q = db.cursor()
 
-    sql = "SELECT * FROM runners WHERE id = ?"
+    sql = "SELECT form,username,password FROM runners WHERE id = ?"
 
     q.execute(sql, [ID])
-    runnerData = q.fetchall()
+    #runnerDetailsA.append(q.fetchall()[0])
+    returned = q.fetchall()[0]
+    for i in range(3):
+        runnerDetailsA[i].set(returned[i])
     q.close()
     db.close()
+    editingRunnerFrm.grid(row =3,column = 1, columnspan = 2)
+
+def deleteRunner(ID,TL):
+    db = sqlite3.connect('runningDB2/running.db')
+    q = db.cursor()
+
+    sql = """DELETE FROM runners
+WHERE id = ?
+"""
+    q.execute(sql, [ID])
+    sql = """DELETE FROM times
+WHERE runner_id = ?
+"""
+    q.execute(sql, [ID])
+
+    db.commit()
+    q.close()
+    db.close()
+
+    adminRunnerDBOptsTL.withdraw()
+
+def saveRunnerEdits(ID, runnerDetailsA):
+    db = sqlite3.connect('runningDB2/running.db')
+    q = db.cursor()
+
+    sql = """UPDATE runners
+SET form = ?, username = ?, password = ?
+WHERE id = ?
+"""
+    q.execute(sql, [runnerDetailsA[0].get(), runnerDetailsA[1].get(), runnerDetailsA[2].get(), ID])
+    db.commit()
+    q.close()
+    db.close()
+
     
     
 
@@ -837,11 +875,14 @@ viewRunnerFrm = Frame(myGUI)
 
 findRunnerFrm = Frame(viewRunnerFrm)
 viewRunnerTreeFrm = Frame(viewRunnerFrm)
-adminRunnerDBOptsFrm = Frame(viewRunnerFrm)
 
 findRunnerFrm.pack()
 viewRunnerTreeFrm.pack()
-adminRunnerDBOptsFrm.pack()
+
+adminRunnerDBOptsTL = Toplevel()
+adminRunnerDBOptsTL.withdraw()
+#adminRunnerDBOptsFrm = Frame(viewRunnerFrm)
+#adminRunnerDBOptsFrm.pack()
 
 #ok so they type in name/form/id summat
 #i get a list of the runners
@@ -899,22 +940,61 @@ runnersTreeview.grid(row = 1, column= 1, sticky = NSEW)
 
 
 
-selectedUserLbl = Label(adminRunnerDBOptsFrm, text = "Selected User:")
+selectedUserLbl = Label(adminRunnerDBOptsTL, text = "Selected User:")
 selectedUserOut = StringVar()
-selectedUserTB = Entry(adminRunnerDBOptsFrm, textvariable = selectedUserOut, state = DISABLED)
+selectedUserTB = Entry(adminRunnerDBOptsTL, textvariable = selectedUserOut, state = DISABLED)
 
 selectedUserLbl.grid(row = 1, column = 1)
 selectedUserTB.grid(row = 1, column = 2)
 
-editRunnerB = Button(adminRunnerDBOptsFrm, text = "Edit Runner", command = lambda: print("ha ha not editing"))
+
+editingRunnerFrm = Frame(adminRunnerDBOptsTL)
+
+editFormLbl = Label(editingRunnerFrm, text = "Form:")
+editFormLbl.grid(row = 1, column = 1)
+editFormIn = StringVar()
+editFormTB = Entry(editingRunnerFrm, textvariable = editFormIn)
+editFormTB.grid(row = 1, column =2)
+
+editUNLbl = Label(editingRunnerFrm, text = "Username")
+editUNLbl.grid(row = 2, column = 1)
+editUNIn = StringVar()
+editUNTB = Entry(editingRunnerFrm, textvariable = editUNIn)
+editUNTB.grid(row= 2, column =2)
+
+editPWLbl = Label(editingRunnerFrm, text = "Password")
+editPWLbl.grid(row = 3, column =1)
+editPWIn = StringVar()
+editPWTB = Entry(editingRunnerFrm, textvariable = editPWIn)
+editPWTB.grid(row = 3, column = 2)
+
+editingDetailsA = [editFormIn,editUNIn,editPWIn]
+
+delRunnerB = Button(editingRunnerFrm, text = "DeleteRunner", command = lambda:deleteRunner(runnerID,adminRunnerDBOptsTL))
+delRunnerB.grid(row = 4, column =1)
+saveEditRunnerB = Button(editingRunnerFrm, text = "Save changes", command = lambda:saveRunnerEdits(runnerID, editingDetailsA))
+saveEditRunnerB.grid(row = 4, column = 2)
+
+
+
+editRunnerB = Button(adminRunnerDBOptsTL, text = "Edit Runner", command = lambda: editRunnerDetails(runnerID, editingDetailsA))
 editRunnerB.grid(row = 2, column = 1)
 #within the edit menus thee will be a delete button/option
-editRunnerTimesB = Button(adminRunnerDBOptsFrm, text = "Edit Time", command = lambda: print("maybe this only works when the times has been selecte \n or maybe it pulls up the times and asks you to select a time"))
+editRunnerTimesB = Button(adminRunnerDBOptsTL, text = "Edit Time", command = lambda: print("maybe this only works when the times has been selecte \n or maybe it pulls up the times and asks you to select a time"))
 editRunnerTimesB.grid(row =2, column = 2)
 
 
+#ok i think i may need yet another frame
+#starting to think i may have over done it a little with the frames
+#or maybe not...
 
 
+
+
+#this is supposed to stop it getting destroyed
+adminRunnerDBOptsTL.protocol('WM_DELETE_WINDOW', lambda:adminRunnerDBOptsTL.withdraw())
+#so you can click x on the window
+#and then open it up again
 
 
 
