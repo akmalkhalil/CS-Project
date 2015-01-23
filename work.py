@@ -48,7 +48,6 @@ def getEvents():#the events in the dropdown box
     db.close()
     return returned
 
-
 def disTs(ID, tree, yscroll):#display times
     db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
@@ -90,16 +89,12 @@ ORDER BY events.date DESC
     exitVTB.grid(row=2, column = 1)
     viewTimesFrm.pack()
 
-
-
-
 def mapRange(val, start0, stop0, start1, stop1):
     range0 = stop0-start0
     range1 = stop1-start1
     Pcent = (val -start0)/range0
     finalV = range1 * Pcent + start1
     return finalV
-
 
 def loadData(ID,locID):
 ##    Fname = input("first name of runner:  ")
@@ -121,49 +116,6 @@ AND locations.id = ?
     db.close()
     return blob
 
-##def testUNPW(unIn,pwIn):
-##    global runnerID#need to figure out what's going to happen here
-##    #ok so we need to check UN and PW
-##    global failedLogins
-##    if failedLogins >=5:
-##        print("tried more than 5 times. LOCKED OUT")
-##    elif unIn != UN and unIn != RUNNERUN:
-##        print("wrong UN")
-##        failedLogins += 1
-##    elif unIn == UN and pwIn != PW:
-##        print("wrong PW")
-##        failedLogins +=1
-##    elif unIn == RUNNERUN and pwIn != RUNNERPW:
-##        print("wrong PW")
-##        failedLogins +=1
-##
-##
-##    
-####    elif pwIn != PW and pwIn != RUNNERPW:
-####        print("wrong PW")
-####        failedLogins +=1
-##    elif unIn == UN and pwIn == PW:
-##        print("we're in")
-##        signInFrm.pack_forget()
-##        adminFrm.pack()
-##    elif unIn == RUNNERUN and RUNNERPW:
-##        print("go to the tInputs stuffs")
-##        signInFrm.pack_forget()
-##        nameEntryFrm.pack()
-##        checkOut.set("1 Mickey Mouse 5ABC")#needs changing
-##        runnerID = 1#again this needs changing
-##        genGraph()
-##        """that should really be retrieved from the database
-##SELECT stuffs FROM runners WHERE UN = (?) AND PW = (?)
-##obviously won't be UN/PW in DB
-##?s will be unIn, pwIn
-##"""
-##        
-##        
-##    else:
-##        print("shouldn't be here")
-
-
 def adminOpts(opt):
     if opt == "NEWRUNNER":
         newRunnerFrm.pack()
@@ -177,7 +129,6 @@ def adminOpts(opt):
         viewRunnerFrm.pack()
         newRunnerFrm.pack_forget()
         newEventFrm.pack_forget()
-
 
 def addNewRunner(ID, form, fname, lname):
 
@@ -226,22 +177,31 @@ def getLocs():#when adding events need the location
     db.close()
     return returned
 
-def saveEvent(eventID,locID, eventN, dateD,dateM,dateY):
+def saveEvent(eventID,locID, eventN, dateD,dateM,dateY, note):
     date = str(dateY.get()) + '-' + str(dateM.get()) + '-' + str(dateD.get())
-    print(date)
+    
     db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
+
+    sql = "SELECT id FROM events"
+    if (eventID,) in q.execute(sql).fetchall():
+        note.set("You must enter a unique ID for the event")
+    else:
     
-    sql = "INSERT INTO events(id, location_id, name, date) VALUES(?,?,?,?)"
-    q.execute(sql, [eventID,locID, eventN,date])
-    db.commit()
+        sql = "INSERT INTO events(id, location_id, name, date) VALUES(?,?,?,?)"
+        q.execute(sql, [eventID,locID, eventN,date])
+        db.commit()
+
+        note.set("Added: "+str(eventID)+', '+eventN+', '+date)
     q.close()
     db.close()
+
+    
 
 def findNextEID():
     db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
-    sql = "SELECT * FROM events ORDER BY id"
+    sql = "SELECT id FROM events ORDER BY id"
     q.execute(sql)
     allEs = q.fetchall()
     q.close()
@@ -250,13 +210,14 @@ def findNextEID():
     count = 0
     running = True
     while running:
+        count+=1
         if count == len(allEs)-1:
             running = False
             count+=1
         elif allEs[count][0] + 1 != allEs[count+1][0]:
             running = False
             count += 1
-        count+=1
+    count+=1
     return count
 
 def searchRunners(tree,fname, lname, ID):
@@ -278,8 +239,6 @@ OR id Like ?
 
     insertIntoTree(tree, runners)
 
-    
-
 def emptyTreeview(tree):
     for i in tree.get_children():
         tree.delete(i)
@@ -293,7 +252,6 @@ def createTree(tree, cols, yscroll, widths):#len(widths) must >= len(cols)
         tree.column('#'+str(i+1), stretch = NO, minwidth = widths[i], width = widths[i])
     tree.configure(yscroll=yscroll.set)
 
-    
 def insertIntoTree(tree, values):
     if len(tree.get_children()) > 0:
         emptyTreeview(tree)
@@ -301,7 +259,6 @@ def insertIntoTree(tree, values):
 
     for i in values:
         tree.insert("", END, "", values=i, tag='rowFont')
-
 
 def findRunnerTimes(tree):
     runnerA = tree.item(tree.focus())['values']#an array with the runners data
@@ -349,6 +306,7 @@ AND runners.password = ?
     runner = q.fetchall()
     if len(runner) !=1:
         note.set("Username or password are incorrect")
+        failedLogins+=1
     else:
         note.set("logging in")
         runner =  runner[0]
@@ -359,7 +317,6 @@ AND runners.password = ?
         #genGraph()
     q.close()
     db.close()
-
 
 def selectRunner(tree):
     global runnerID
@@ -430,7 +387,17 @@ WHERE id = ?
     q.close()
     db.close()
 
+def editRunnerTimes(ID, timesTree, timesFrm):
+    print(ID)
+    print(timesTree.item(timesTree.focus())['values'])
+##    timesFrm.pack_forget()
+##    timesFrm.pack()
+    if timesTree.item(timesTree.focus())['values'] == '':
+        print('no times selected and stuff')
+    else:
+        print("need to load this data into TBs so that it can be updated")
     
+
     
 
 runnerID = 0
@@ -460,7 +427,7 @@ for i in range(len(locsRaw)):
 myGUI = Tk()
 #myGUI.geometry("400x300+450+150")
 myGUI.title("Cross Country Program")
-myGUI.configure(background = 'black')
+#myGUI.configure(background = 'black')
 
 
 #should only add this once they've signed in!!!
@@ -790,6 +757,11 @@ newEventLocLbl.grid(row =3, column =1)
 newEventLocIn = StringVar()
 newEventLocIn.set('0')
 
+#the little note that i seem to be using now
+newEventNote = StringVar()
+newEventNoteLbl = Label(newEventFrm, textvariable = newEventNote)
+newEventNoteLbl.grid(row =4, column = 3, columnspan = 2)
+
 #the locA was originally here but i had to move it earlier up
 
 #print(locsA)
@@ -800,7 +772,7 @@ newEventLocCB.grid(row = 3, column = 2)
 createNewLocB = Button(newEventFrm, text = "need a new Location", command = lambda:newLocFrm.pack())
 createNewLocB.grid(row =3, column = 3)
 
-addNewEventB = Button(newEventFrm, text = "Add The Event", command = lambda:saveEvent(newEventIDIn.get(),int(newEventLocIn.get().split(',')[0]), newEventNIn.get(), newEDateDIn,newEDateMIn,newEDateYIn))
+addNewEventB = Button(newEventFrm, text = "Add the Event", command = lambda:saveEvent(newEventIDIn.get(),int(newEventLocIn.get().split(',')[0]), newEventNIn.get(), newEDateDIn,newEDateMIn,newEDateYIn, newEventNote))
 addNewEventB.grid(row =4 , column = 2)
 
 newEventNextIDB = Button(newEventFrm, text = "find next ID", command = lambda: newEventIDIn.set(findNextEID()))
@@ -809,7 +781,7 @@ newEventNextIDB.grid(row = 2, column = 4)#so it's under the ID TB
 #need to get figure out locID based on combobox
 #and date
 #####newEventLocInID = newEventLocIn.get().split(',')[0]
-exitNewEventB = Button(newEventFrm, text = "bye bye", command = lambda:newEventFrm.pack_forget())
+exitNewEventB = Button(newEventFrm, text = "Done Adding", command = lambda:newEventFrm.pack_forget())
 exitNewEventB.grid(row =5, column = 1)
 
 
@@ -976,11 +948,22 @@ saveEditRunnerB = Button(editingRunnerFrm, text = "Save changes", command = lamb
 saveEditRunnerB.grid(row = 4, column = 2)
 
 
+#editingtimes
+editingTimeFrm = Frame(adminRunnerDBOptsTL)
+
+editTimeEventLbl = Label(editingTimeFrm, text = "event")
+editTimeEventLbl.grid(row = 1, column =1)
+editTimeEventIn = StringVar()
+editTimeEventCB = Combobox(editingTimeFrm, textvariable = editTimeEventIn)
+
+
+
+
 
 editRunnerB = Button(adminRunnerDBOptsTL, text = "Edit Runner", command = lambda: editRunnerDetails(runnerID, editingDetailsA))
 editRunnerB.grid(row = 2, column = 1)
 #within the edit menus thee will be a delete button/option
-editRunnerTimesB = Button(adminRunnerDBOptsTL, text = "Edit Time", command = lambda: print("maybe this only works when the times has been selecte \n or maybe it pulls up the times and asks you to select a time"))
+editRunnerTimesB = Button(adminRunnerDBOptsTL, text = "Edit Time", command = lambda:editRunnerTimes(runnerID, viewTimesTree, viewTimesFrm))
 editRunnerTimesB.grid(row =2, column = 2)
 
 
