@@ -28,11 +28,12 @@ WHERE runner_id = ?
     for i in range(len(times)):
         if str(times[i][1]) == eventsIn.get().split(':')[0]:
             exists = True
-            savingNote.set("a record for this event already exists")
+            savingNote.set("A record for this event already exists")
     if not exists and eventsIn.get() != "No Event Selected":
         sql = "INSERT INTO times(runner_id, event_id, time,checked) VALUES(?,?,?,?)"
         q.execute(sql, [runnerID, eventsIn.get().split(':')[0], seconds,0])#SHOULD HAVE TO CHECK IF THERES ALREADY AN ENTRY
         db.commit()
+        savingNote.set("Saved")
     #print(runnerID)
     q.close()
     db.close()
@@ -77,7 +78,10 @@ ORDER BY events.date DESC
         hours = floor(data[i][-2]/3600)
         minutes = floor((data[i][-2]-hours*3600)/60)
         seconds = data[i][-2]-hours*3600-minutes*60
-        checker = data[i][-1]
+        if data[i][-1] == 1:
+            checker = '✓'
+        else:
+            checker = '✗'
         data[i] = [data[i][x] for x in range(len(data[i])-2)]
         data[i].append(str(hours) + ':' + str(minutes) + ':' + str(seconds))
         data[i].append(checker)
@@ -135,11 +139,11 @@ def addNewRunner(ID, form, fname, lname):
     try:
         int(ID)
     except ValueError:
-        unpwNote.set("ID must be an interger")
+        newRNote.set("ID must be an integer")
         return#move rest of code up into try
     #what about -ves
     if len(ID) != 4:
-        unpwNote.set("ID must be four digits long")
+        newRNote.set("ID must be four digits long")
         print("here")
     
     un = lname+str(ID)
@@ -151,9 +155,9 @@ def addNewRunner(ID, form, fname, lname):
     sql = "INSERT INTO runners(id, fName, lName, form,username,password) VALUES(?,?,?,?,?,?)"
     try:
         q.execute(sql, [ID, fname, lname, form,un,pw])
-        unpwNote.set("Username: "+un+", Password= "+pw)
+        newRNote.set("Username: "+un+", Password= "+pw)
     except sqlite3.IntegrityError:
-        unpwNote.set("runner with that ID exists")
+        newRNote.set("Runner with that ID exists")
 ##    except sqlite3.OperationalError(" database is locked"):
 ##        print("broken")
     
@@ -183,16 +187,24 @@ def saveEvent(eventID,locID, eventN, dateD,dateM,dateY, note):
     db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
 
-    sql = "SELECT id FROM events"
-    if (eventID,) in q.execute(sql).fetchall():
-        note.set("You must enter a unique ID for the event")
-    else:
-    
-        sql = "INSERT INTO events(id, location_id, name, date) VALUES(?,?,?,?)"
-        q.execute(sql, [eventID,locID, eventN,date])
-        db.commit()
+    try:
+        sql = "SELECT id FROM events"
+        if (int(eventID),) in q.execute(sql).fetchall():
+            note.set("You must enter a unique ID for the event")
+        elif dateD.get()<1 or dateD.get() >31:
+            note.set("dates must be DD/MM/YYYY\nthe day must be in between 1 and 31, inclusive")
+        elif dateM.get()<1 or dateM.get()>12:
+            note.set("dates must be DD/MM/YYYY\nthe month must be in between 1 and 12, inclusive")
+        else:
+        
+            sql = "INSERT INTO events(id, location_id, name, date) VALUES(?,?,?,?)"
+            q.execute(sql, [int(eventID),locID, eventN,date])
+            db.commit()
+            note.set("Added: "+str(eventID)+', '+eventN+', '+date)
+    except ValueError:
+        note.set("ID must be an integer")
 
-        note.set("Added: "+str(eventID)+', '+eventN+', '+date)
+    
     q.close()
     db.close()
 
@@ -290,7 +302,7 @@ AND times.runner_id = ?
 def testUNPW3(unIn, pwIn, note):
     global DB, runnerID, failedLogins
     if failedLogins >= 5:
-        note.set("LOCKED OUT MWAHAHAHA")
+        note.set("LOCKED OUT")
         return
     elif unIn == "bob" and pwIn == "blob":
         signInFrm.pack_forget()
@@ -325,15 +337,44 @@ def selectRunner(tree):
         selectedUserOut.set(str(tree.item(tree.focus())['values'][1])+' '+str(tree.item(tree.focus())['values'][2]))
         adminRunnerDBOptsTL.deiconify()
 
-def addNewLoc(ID,name,addr,dist):
-    #print(ID,name,addr,dist)
+def addNewLoc(ID,name,addr,dist,locA,note):
+    global newEventLocCB
+    
     db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
+
+    sql = "SELECT id FROM locations"
+    locids = q.execute(sql).fetchall()
+    try:
+        if (int(ID),) in locids:
+            note.set("ID is not unique")
+            return
+        elif int(ID) == 0:
+            note.set("ID cannot be 0")
+            return
+    except ValueError:
+        note.set("ID must be an integer")
+        return
+    try:
+        if float(dist) <= 0:
+            note.set("Distance be greater than 0")
+            return
+    except ValueError:
+        note.set("The distance must be a number")
+        return
+    
     sql = "INSERT INTO locations(id,name,address,length) VALUES(?,?,?,?)"
-    q.execute(sql, [ID,name,addr,dist])
+    q.execute(sql, [int(ID),name,addr,float(dist)])
+    
     db.commit()
     q.close()
     db.close()
+    
+    newLoc = str(ID) +','+ name+','+ addr+' '+str(dist)
+    locA.append(newLoc)
+    newEventLocCB['values'] = locA
+    note.set("New location added")
+    
 
 def editRunnerDetails(ID,runnerDetailsA):
     #ok so we get all the runners stuffs from DB
@@ -387,17 +428,72 @@ WHERE id = ?
     q.close()
     db.close()
 
-def editRunnerTimes(ID, timesTree, timesFrm):
+def editRunnerTimes(ID, timesTree, timesFrm, timeA):
+    db = sqlite3.connect('runningDB2/running.db')
+    q = db.cursor()
     print(ID)
     print(timesTree.item(timesTree.focus())['values'])
 ##    timesFrm.pack_forget()
 ##    timesFrm.pack()
-    if timesTree.item(timesTree.focus())['values'] == '':
+    selectedTime = timesTree.item(timesTree.focus())['values']
+    if selectedTime == '':
         print('no times selected and stuff')
     else:
         print("need to load this data into TBs so that it can be updated")
+        
+        sql = """SELECT id, name, date FROM events
+WHERE id = ?
+"""
+        q.execute(sql, [selectedTime[0]])
+        print(q.fetchall())
+        event = str(selectedTime[0])+':'+selectedTime[1]+':'+selectedTime[4]
+        timeA[5] = selectedTime[0]
+        timeA[0].set(event)
+
+        time = selectedTime[5].split(':')
+        timeA[1].set(int(time[0]))
+        timeA[2].set(int(time[1]))
+        timeA[3].set(int(time[2]))
+
+        timeA[4].set(selectedTime[6])
+        
+
+
+    editingTimeFrm.grid(row = 4,column = 1, columnspan = 2)
+
+def deleteTime(ID,timeA):
+    eventID = eventID = int(timeA[0].get().split(':')[0])
+    db = sqlite3.connect("runningDB2/running.db")
+    q = db.cursor()
+    q.execute("DELETE FROM times WHERE event_id = ? AND runner_id = ?",[eventID, ID])
+    db.commit()
+    q.close()
+    db.close()
+    
+    
+def saveEditTime(ID,timeA):
+    eventID = int(timeA[0].get().split(':')[0])
+    seconds = 0
+    seconds += timeA[3].get()
+    seconds += timeA[2].get() * 60
+    seconds += timeA[1].get() * 60**2
     
 
+    db = sqlite3.connect("runningDB2/running.db")
+    q = db.cursor()
+
+    sql = """UPDATE times
+SET event_id = ?, time = ?, checked = ?
+WHERE event_id = ?
+AND runner_id = ?
+"""
+    q.execute(sql, [eventID, seconds,timeA[4].get(), eventID, runnerID])
+    db.commit()
+    q.close()
+    db.close()
+
+    
+    
     
 
 runnerID = 0
@@ -691,10 +787,10 @@ newSnameIn = StringVar()
 newSnameTB = Entry(newRunnerFrm, textvariable = newSnameIn, width = 10)
 newSnameTB.grid(row = 2, column =4)
 
-unpwNote = StringVar()
-unpwNote.set("Username will be Surname and ID\nPassword will be randomly generate 5 letter string")
-unpwNoteLbl = Label(newRunnerFrm, textvariable = unpwNote, anchor  = W)
-unpwNoteLbl.grid(row = 3, column = 1, columnspan = 4)
+newRNote = StringVar()
+newRNote.set("Username will be Surname and ID\nPassword will be randomly generate 5 letter string")
+newRNoteLbl = Label(newRunnerFrm, textvariable = newRNote, anchor  = W)
+newRNoteLbl.grid(row = 3, column = 1, columnspan = 4)
 
 #ok now we actually gotta add him
 #i'm gonna do this in the other thign sto start with so i don't mess up anything here
@@ -725,7 +821,7 @@ newEventNIn = StringVar()
 newEventNTB = Entry(newEventFrm, textvariable = newEventNIn)
 newEventNTB.grid(row = 1, column =2)
 
-newEventIDIn = IntVar()
+newEventIDIn = StringVar()
 newEventIDLbl = Label(newEventFrm, text = "ID:")
 newEventIDLbl.grid(row = 1, column = 3)
 newEventIDTB = Entry(newEventFrm, textvariable = newEventIDIn)
@@ -801,7 +897,8 @@ newLocNameTB.grid(row =1, column = 2)
 
 newLocIDLbl = Label(newLocFrm, text = "ID:")
 newLocIDLbl.grid(row = 1, column =3)
-newLocIDIn = IntVar()
+newLocIDIn = StringVar()
+newLocIDIn.set('0')
 newLocIDTB = Entry(newLocFrm, textvariable = newLocIDIn)
 newLocIDTB.grid(row = 1,column = 4)
 
@@ -813,11 +910,16 @@ newLocAddrTB.grid(row =2, column = 2)
 
 newLocDistLbl = Label(newLocFrm, text = "Distance(km):")
 newLocDistLbl.grid(row =2,column = 3)
-newLocDistIn = DoubleVar()
+newLocDistIn = StringVar()
+newLocDistIn.set('0.0')
 newLocDistTB = Entry(newLocFrm, textvariable = newLocDistIn)
 newLocDistTB.grid(row = 2,column = 4)
 
-addNewLocB = Button(newLocFrm, text = "Add Location", command = lambda:addNewLoc(newLocIDIn.get(),newLocNameIn.get(),newLocAddrIn.get(),newLocDistIn.get()))
+newLocNote = StringVar()
+newLocNoteLbl = Label(newLocFrm, textvariable = newLocNote)
+newLocNoteLbl.grid(row = 3, column =2, columnspan = 3)
+
+addNewLocB = Button(newLocFrm, text = "Add Location", command = lambda:addNewLoc(newLocIDIn.get(),newLocNameIn.get(),newLocAddrIn.get(),newLocDistIn.get(),locsA,newLocNote))
 addNewLocB.grid(row =3, column = 1)
 
 exitNewLocB = Button(newLocFrm, text = "Done", command = lambda: newLocFrm.pack_forget())
@@ -954,16 +1056,44 @@ editingTimeFrm = Frame(adminRunnerDBOptsTL)
 editTimeEventLbl = Label(editingTimeFrm, text = "event")
 editTimeEventLbl.grid(row = 1, column =1)
 editTimeEventIn = StringVar()
-editTimeEventCB = Combobox(editingTimeFrm, textvariable = editTimeEventIn)
+editTimeEventCB = Combobox(editingTimeFrm,values = eventsA, textvariable = editTimeEventIn)
+editTimeEventCB.grid(row =1,column =2, columnspan = 3)
+
+editTimeLbl = Label(editingTimeFrm, text = "Time:")
+editTimeLbl.grid(row = 2,column =1)
+
+editTimeHIn = IntVar()
+editTimeHTB = Entry(editingTimeFrm, textvariable = editTimeHIn, width = 2)
+editTimeHTB.grid(row = 2,column = 2)
+editTimeMIn = IntVar()
+editTimeMTB = Entry(editingTimeFrm, textvariable = editTimeMIn, width = 2)
+editTimeMTB.grid(row = 2, column = 3)
+editTimeSIn = IntVar()
+editTimeSTB = Entry(editingTimeFrm, textvariable = editTimeSIn, width = 2)
+editTimeSTB.grid(row =2, column = 4)
+
+editCheckLbl = Label(editingTimeFrm, text = "checked")
+editCheckLbl.grid(row = 3, column = 1)
+editCheckVar = IntVar()
+editCheckB = Checkbutton(editingTimeFrm, variable = editCheckVar)
+editCheckB.grid(row = 3, column = 2)
+
+editingTimeA = [editTimeEventIn, editTimeHIn, editTimeMIn, editTimeSIn, editCheckVar,0]
 
 
+
+deleteTimeB = Button(editingTimeFrm, text = 'Delete Time', command = lambda: deleteTime(runnerID, editingTimeA))
+deleteTimeB.grid(row  = 4, column =2, columnspan =3)#sticky = E????
+
+saveEditTimeB = Button(editingTimeFrm, text= "Save Edits", command = lambda: saveEditTime(runnerID,editingTimeA))
+saveEditTimeB.grid(row = 4, column = 1)
 
 
 
 editRunnerB = Button(adminRunnerDBOptsTL, text = "Edit Runner", command = lambda: editRunnerDetails(runnerID, editingDetailsA))
 editRunnerB.grid(row = 2, column = 1)
 #within the edit menus thee will be a delete button/option
-editRunnerTimesB = Button(adminRunnerDBOptsTL, text = "Edit Time", command = lambda:editRunnerTimes(runnerID, viewTimesTree, viewTimesFrm))
+editRunnerTimesB = Button(adminRunnerDBOptsTL, text = "Edit Time", command = lambda:editRunnerTimes(runnerID, viewTimesTree, viewTimesFrm,editingTimeA))
 editRunnerTimesB.grid(row =2, column = 2)
 
 
