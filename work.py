@@ -1,19 +1,31 @@
 from tkinter import *
 from tkinter.ttk import *
-import sqlite3#, time
+import sqlite3
 from math import floor
 from random import randint
 
-def save():
+def save(note):
     seconds = 0
-    seconds += timeHIn.get() * 60*60
-    seconds += timeMIn.get() * 60
-    seconds += timeSIn.get()
-    #print(seconds)
-    savingNote = StringVar()
-    savingNote.set(str(seconds))
-    secondsLbl = Label(timeEntryFrm, textvariable = savingNote)
-    secondsLbl.grid(row = 3, column = 2)
+    try:
+        seconds += timeHIn.get() * 60*60
+        seconds += timeMIn.get() * 60
+        seconds += timeSIn.get()
+        if timeHIn.get()>4:
+            note.set("time must be less than 5 hours")
+            return
+        if timeMIn.get()>=60:
+            note.set("minutes cannot be greater than 60")
+            return
+        if timeSIn.get()>=60:
+            note.set("seconds cannot be greater than 60")
+            return
+    except ValueError:
+        note.set("hours,minutes and seconds must each be integers")
+        return
+    
+    #note.set(str(seconds))
+##    secondsLbl = Label(timeEntryFrm, textvariable = savingNote)
+##    secondsLbl.grid(row = 4, column = 2)
 
     db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
@@ -28,13 +40,17 @@ WHERE runner_id = ?
     for i in range(len(times)):
         if str(times[i][1]) == eventsIn.get().split(':')[0]:
             exists = True
-            savingNote.set("A record for this event already exists")
-    if not exists and eventsIn.get() != "No Event Selected":
+            note.set("A record for this event already exists")
+    if runnerID == 0:
+        note.set("No runner has been selected")
+    elif eventsIn.get() == "No Event Selected":
+        note.set("No event has been selected")
+    elif not exists:
         sql = "INSERT INTO times(runner_id, event_id, time,checked) VALUES(?,?,?,?)"
-        q.execute(sql, [runnerID, eventsIn.get().split(':')[0], seconds,0])#SHOULD HAVE TO CHECK IF THERES ALREADY AN ENTRY
+        q.execute(sql, [runnerID, eventsIn.get().split(':')[0], seconds,0])
         db.commit()
-        savingNote.set("Saved")
-    #print(runnerID)
+        note.set("Saved")
+    
     q.close()
     db.close()
 
@@ -45,7 +61,6 @@ def getEvents():#the events in the dropdown box
     q.execute(sql)
     returned = q.fetchall()
     q.close()
-    #db.commit()
     db.close()
     return returned
 
@@ -70,9 +85,6 @@ ORDER BY events.date DESC
     q.close()
     db.close()
 
-    #ok need to change how the times are displayed here
-    #they're currently in seconds as from DB
-    #need to change to hrs:mins:secs
 
     for i in range(len(data)):
         hours = floor(data[i][-2]/3600)
@@ -101,8 +113,6 @@ def mapRange(val, start0, stop0, start1, stop1):
     return finalV
 
 def loadData(ID,locID):
-##    Fname = input("first name of runner:  ")
-##    Lname = input("last name of runner:  ")
     db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
     sql = """ SELECT * FROM times, runners, events, locations
@@ -112,7 +122,6 @@ AND times.event_id = events.id
 AND runners.id = ?
 AND locations.id = ?
 """
-    #q.execute(sql, [Fname, Lname])
     q.execute(sql,[ID,locID])
     blob = q.fetchall()
 
@@ -177,7 +186,6 @@ def getLocs():#when adding events need the location
     q.execute(sql)
     returned = q.fetchall()
     q.close()
-    #db.commit()
     db.close()
     return returned
 
@@ -233,18 +241,26 @@ def findNextEID():
     return count
 
 def searchRunners(tree,fname, lname, ID):
-    db = sqlite3.connect("runningDB2/running.db")
-    q = db.cursor()
-    sql ="""SELECT * FROM runners
-WHERE fName LIKE ?
-OR lName LIKE ?
-OR id Like ?
-"""
     try:
         ID = int(ID)
     except ValueError:
         ID = 0
-    q.execute(sql, [fname, lname,ID])
+
+    
+    db = sqlite3.connect("runningDB2/running.db")
+    q = db.cursor()
+    
+    if len(fname) == 0 and len(lname) == 0 and ID == 0:
+        sql = "SELECT * FROM runners"
+        q.execute(sql)
+    else:
+        sql ="""SELECT * FROM runners
+WHERE fName LIKE ?
+OR lName LIKE ?
+OR id Like ?
+"""
+    
+        q.execute(sql, [fname, lname,ID])
     runners = q.fetchall()
     q.close()
     db.close()
@@ -582,13 +598,10 @@ should have another bit in the table to see if it's been checked
 if it's been checked, they can't change it
 """
 timeEntryFrm = Frame(myGUI)
-#timeEntryFrm.pack()
+
 eventsLbl = Label (timeEntryFrm, text = "Event")
 eventsLbl.grid(row = 1, column = 1)
-#events.set
-#cant do this until urv replys
-# i need to get the vals from the list gen in getEvents() and put them in the OM
-#i'm using a combobox
+
 eventsIn = StringVar()
 eventsIn.set("No Event Selected")
 eventsRaw = getEvents()
@@ -598,8 +611,8 @@ for i in range(len(eventsRaw)):
     eventsA.append(str(eventsRaw[i][0])+':'+str(eventsRaw[i][2])+':'+eventsRaw[i][3])
 eventsCB = Combobox(timeEntryFrm, values = eventsA, textvariable = eventsIn)
 eventsCB.grid(row = 1, column =2, columnspan = 3)
-testThingLbl = Label(timeEntryFrm, textvariable = eventsCB.current())
-testThingLbl.grid(row = 4, column =2)
+##testThingLbl = Label(timeEntryFrm, textvariable = eventsCB.current())
+##testThingLbl.grid(row = 4, column =2)
 
 #time label and entry box
 timeLbl = Label(timeEntryFrm, text = "Time")
@@ -615,8 +628,11 @@ timeSIn = IntVar()#seconds
 timeSTB = Entry(timeEntryFrm, textvariable = timeSIn, width = 2)
 timeSTB.grid(row = 2, column = 4)
 
+savingNote = StringVar()
+savingNoteLbl = Label(timeEntryFrm, textvariable = savingNote)
+savingNoteLbl.grid(row = 4,column = 1,columnspan=4)
 
-saveB = Button(timeEntryFrm, text = "save", command = save)
+saveB = Button(timeEntryFrm, text = "save", command = lambda: save(savingNote))
 saveB.grid(row = 3, column = 1)
 
 exitTimesB = Button(timeEntryFrm, text = "done", command = lambda: timeEntryFrm.pack_forget())
@@ -658,14 +674,12 @@ exitGraphsBs = []
 
 
 
-def genGraph():
-    #print(runnerID)
-    
+def genGraph():    
     graphFrames.append(Frame(graphFrm))
     graphFrames[-1].pack(side = LEFT)
 
 
-    localishButton = Button(graphFrames[-1], text = "dones here", command = lambda: destroyGraph(graphFrames.index(graphFrames[-1])))
+    localishButton = Button(graphFrames[-1], text = "Close Graph", command = lambda: destroyGraph(graphFrames.index(graphFrames[-1])))
     
     exitGraphsBs.append(localishButton)
     exitGraphsBs[-1].pack()
@@ -676,16 +690,14 @@ def genGraph():
     dates = []
     for i in range(len(runnerData)):
         dates.append(runnerData[i][13])
-    #print(dates)
+    
     times = []
     for i in range(len(runnerData)):
         times.append(runnerData[i][2])
-    #print(times)
-##    for i in runnerData:
-##        print(i)
+    
 
     yMax = floor((max(times)/10**(len(str(max(times)))-1)+1))*10**(len(str(max(times)))-1)
-    #print(yMax)
+    
     windowW =  300
     windowH = 400
     margin = 20
@@ -752,10 +764,7 @@ newEventB.grid(row = 1, column = 2)
 
 viewRunnerB = Button(adminFrm, text = "View Runner", command = lambda: adminOpts("VIEWRUNNER"))
 viewRunnerB.grid(row =2, column = 1)
-#need new location or should i put that in new event
-#i could have a dropdown/text box
-#you type in if it's new and you use dropdown
-#or top level thingy???
+
 
 
 """
@@ -793,7 +802,6 @@ newRNoteLbl = Label(newRunnerFrm, textvariable = newRNote, anchor  = W)
 newRNoteLbl.grid(row = 3, column = 1, columnspan = 4)
 
 #ok now we actually gotta add him
-#i'm gonna do this in the other thign sto start with so i don't mess up anything here
 addRunnerB = Button(newRunnerFrm, text = "Add Runner", command = lambda:addNewRunner(newIDIn.get(),newFormIn.get(), newFnameIn.get(),newSnameIn.get(), ))
 addRunnerB.grid(row = 4, column =1)
 
@@ -831,8 +839,8 @@ newEventIDTB.grid(row= 1, column = 4)
 newEventDateLbl = Label(newEventFrm, text = "Date:")
 newEventDateLbl.grid(row= 2, column =1)
 newEventDateIn = StringVar()
-#####################adding a new date do it!!!
 
+#adding a new date
 newEDateFrm = Frame(newEventFrm)
 newEDateFrm.grid(row = 2, column =2)
 newEDateDIn = IntVar()
