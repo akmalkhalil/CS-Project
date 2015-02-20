@@ -352,6 +352,9 @@ def selectRunner(tree):
         runnerID = tree.item(tree.focus())['values'][0]
         selectedUserOut.set(str(tree.item(tree.focus())['values'][1])+' '+str(tree.item(tree.focus())['values'][2]))
         adminRunnerDBOptsTL.deiconify()
+        editingRunnerFrm.grid_forget()
+        editingTimeFrm.grid_forget()
+        
 
 def addNewLoc(ID,name,addr,dist,locA,note):
     global newEventLocCB
@@ -401,15 +404,16 @@ def editRunnerDetails(ID,runnerDetailsA):
     db = sqlite3.connect('runningDB2/running.db')
     q = db.cursor()
 
-    sql = "SELECT form,username,password FROM runners WHERE id = ?"
+    sql = "SELECT form,fName,lName,username,password FROM runners WHERE id = ?"
 
     q.execute(sql, [ID])
     #runnerDetailsA.append(q.fetchall()[0])
     returned = q.fetchall()[0]
-    for i in range(3):
+    for i in range(5):
         runnerDetailsA[i].set(returned[i])
     q.close()
     db.close()
+    editingTimeFrm.grid_forget()
     editingRunnerFrm.grid(row =3,column = 1, columnspan = 2)
 
 def deleteRunner(ID,TL):
@@ -436,15 +440,17 @@ def saveRunnerEdits(ID, runnerDetailsA):
     q = db.cursor()
 
     sql = """UPDATE runners
-SET form = ?, username = ?, password = ?
+SET form = ?,fName = ?, lName = ?, username = ?, password = ?
 WHERE id = ?
 """
-    q.execute(sql, [runnerDetailsA[0].get(), runnerDetailsA[1].get(), runnerDetailsA[2].get(), ID])
+    q.execute(sql, [runnerDetailsA[0].get(),runnerDetailsA[1].get(), runnerDetailsA[2].get(), runnerDetailsA[3].get(), runnerDetailsA[4].get(), ID])
     db.commit()
     q.close()
     db.close()
 
-def editRunnerTimes(ID, timesTree, timesFrm, timeA):
+    selectedUserOut.set(runnerDetailsA[1].get()+' '+runnerDetailsA[2].get())
+
+def editRunnerTimes(ID, timesTree, timesFrm, timeA,note):
     db = sqlite3.connect('runningDB2/running.db')
     q = db.cursor()
     print(ID)
@@ -453,10 +459,8 @@ def editRunnerTimes(ID, timesTree, timesFrm, timeA):
 ##    timesFrm.pack()
     selectedTime = timesTree.item(timesTree.focus())['values']
     if selectedTime == '':
-        print('no times selected and stuff')
+        note.set("please select a time first")
     else:
-        print("need to load this data into TBs so that it can be updated")
-        
         sql = """SELECT id, name, date FROM events
 WHERE id = ?
 """
@@ -472,12 +476,14 @@ WHERE id = ?
         timeA[3].set(int(time[2]))
 
         timeA[4].set(selectedTime[6])
+
+        note.set('')
         
 
-
+    editingRunnerFrm.grid_forget()
     editingTimeFrm.grid(row = 4,column = 1, columnspan = 2)
 
-def deleteTime(ID,timeA):
+def deleteTime(ID,timeA,note):
     eventID = eventID = int(timeA[0].get().split(':')[0])
     db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
@@ -485,15 +491,34 @@ def deleteTime(ID,timeA):
     db.commit()
     q.close()
     db.close()
+
+    timeA[0] = StringVar()
+    for i in range(3):
+        timeA[i+1] = IntVar()
+    timeA[4] = StringVar()
+    timeA[5] = 0
+    editingTimeFrm.grid_forget()
+
+    note.set("Deleted")
     
     
-def saveEditTime(ID,timeA):
+def saveEditTime(ID,timeA,note):
+
+    if timeA[1].get()>4 or timeA[2].get()>59 or timeA[3].get() > 59:
+        note.set("Time incorrectly input")
+        return
+    
+    
     eventID = int(timeA[0].get().split(':')[0])
     seconds = 0
     seconds += timeA[3].get()
     seconds += timeA[2].get() * 60
     seconds += timeA[1].get() * 60**2
-    
+
+    if timeA[4] == '✗':
+        checked = 0
+    else:
+        checked = 1
 
     db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
@@ -503,11 +528,11 @@ SET event_id = ?, time = ?, checked = ?
 WHERE event_id = ?
 AND runner_id = ?
 """
-    q.execute(sql, [eventID, seconds,timeA[4].get(), eventID, runnerID])
+    q.execute(sql, [eventID, seconds,checked, eventID, runnerID])
     db.commit()
     q.close()
     db.close()
-
+    note.set('Saved')
     
     
     
@@ -585,7 +610,7 @@ need to get rid of them entering their names"""
 #name and form
 nameEntryFrm = Frame(myGUI)
 
-checkLbl = Label(nameEntryFrm, text = "is this you")
+checkLbl = Label(nameEntryFrm, text = "Welcome Back")
 checkLbl.grid(row = 4, column =1)
 checkOut = StringVar()
 checkOutTB = Entry(nameEntryFrm, textvariable = checkOut, state = "readonly")
@@ -674,22 +699,34 @@ exitGraphsBs = []
 
 
 
-def genGraph():    
+def genGraph():
     graphFrames.append(Frame(graphFrm))
     graphFrames[-1].pack(side = LEFT)
 
-
-    localishButton = Button(graphFrames[-1], text = "Close Graph", command = lambda: destroyGraph(graphFrames.index(graphFrames[-1])))
+    localishIndex = graphFrames.index(graphFrames[-1])
+    localishButton = Button(graphFrames[-1],
+                            text = "Close Graph",
+                            command = lambda: destroyGraph(localishIndex))
     
     exitGraphsBs.append(localishButton)
     exitGraphsBs[-1].pack()
-    
+
+    if graphLocIn.get()[0] == '0':
+        errorLbl = Label(graphFrames[-1], text = 'Location must be selected')
+        errorLbl.pack()
+        return
+    elif runnerID == 0:
+        errorLbl = Label(graphFrames[-1], text = 'There is no runner selected')
+        errorLbl.pack()
+        return
     runnerData = loadData(runnerID, graphLocIn.get().split(',')[0])
     if len(runnerData) == 0:
+        errorLbl = Label(graphFrames[-1], text = 'There is no data for this location')
+        errorLbl.pack()
         return
-    dates = []
-    for i in range(len(runnerData)):
-        dates.append(runnerData[i][13])
+##    dates = []
+##    for i in range(len(runnerData)):
+##        dates.append(runnerData[i][13])
     
     times = []
     for i in range(len(runnerData)):
@@ -715,14 +752,15 @@ def genGraph():
     for i in range(windowH - margin, 0, -sqry):
         graphC.create_line(0,i, windowW, i)
         #yLbl = Label(myGUI, text = str(i))
-        yLbl = Label(graphFrames[-1], text = str(mapRange(windowH - i, 20, windowH, 0,yMax)))
+        ytext = str(mapRange(windowH - i, 20, windowH, 0,yMax))
+        yLbl = Label(graphFrames[-1], text = ytext)
         yLbl.place(x = 0, y = i)
     #x-axis
     for i in range(margin, windowW, sqrx):
         graphC.create_line(i, 0, i, windowH)
         xLbl = Label(graphFrames[-1], text = str((i-margin)/sqrx))
-        if (i-margin)/sqrx < len(dates):
-            xLbl = Label(graphFrames[-1],  text = dates[int((i-margin)/sqrx)])
+##        if (i-margin)/sqrx < len(dates):
+##            xLbl = Label(graphFrames[-1],  text = dates[int((i-margin)/sqrx)])
             
         xLbl.place(x = i,y = windowH-margin)
         
@@ -738,8 +776,9 @@ def genGraph():
 def destroyGraph(num):
     global exitGraphBs
     graphFrames[num].pack_forget()
-    graphFrames.remove(graphFrames[num])
-    exitGraphsBs.remove(exitGraphsBs[num])
+    graphFrames[num] = None
+    exitGraphsBs[num] = None
+    
 
         
 exitGraphB = Button(graphFrm, text = "Done", command = lambda: graphFrm.pack_forget())
@@ -1032,30 +1071,42 @@ selectedUserTB.grid(row = 1, column = 2)
 
 editingRunnerFrm = Frame(adminRunnerDBOptsTL)
 
-editFormLbl = Label(editingRunnerFrm, text = "Form:")
+editFormLbl = Label(editingRunnerFrm, text = "Form")
 editFormLbl.grid(row = 1, column = 1)
 editFormIn = StringVar()
 editFormTB = Entry(editingRunnerFrm, textvariable = editFormIn)
 editFormTB.grid(row = 1, column =2)
 
+editFNameLbl = Label(editingRunnerFrm, text = "First Name")
+editFNameLbl.grid(row = 2, column = 1)
+editFNameIn = StringVar()
+editFNameTB = Entry(editingRunnerFrm, textvariable = editFNameIn)
+editFNameTB.grid(row = 2, column =2)
+
+editSNameLbl = Label(editingRunnerFrm, text = "Surname")
+editSNameLbl.grid(row = 3, column = 1)
+editSNameIn = StringVar()
+editSNameTB = Entry(editingRunnerFrm, textvariable = editSNameIn)
+editSNameTB.grid(row = 3, column = 2)
+
 editUNLbl = Label(editingRunnerFrm, text = "Username")
-editUNLbl.grid(row = 2, column = 1)
+editUNLbl.grid(row = 4, column = 1)
 editUNIn = StringVar()
 editUNTB = Entry(editingRunnerFrm, textvariable = editUNIn)
-editUNTB.grid(row= 2, column =2)
+editUNTB.grid(row= 4, column =2)
 
 editPWLbl = Label(editingRunnerFrm, text = "Password")
-editPWLbl.grid(row = 3, column =1)
+editPWLbl.grid(row = 5, column =1)
 editPWIn = StringVar()
 editPWTB = Entry(editingRunnerFrm, textvariable = editPWIn)
-editPWTB.grid(row = 3, column = 2)
+editPWTB.grid(row = 5, column = 2)
 
-editingDetailsA = [editFormIn,editUNIn,editPWIn]
+editingDetailsA = [editFormIn,editFNameIn,editSNameIn,editUNIn,editPWIn]
 
 delRunnerB = Button(editingRunnerFrm, text = "DeleteRunner", command = lambda:deleteRunner(runnerID,adminRunnerDBOptsTL))
-delRunnerB.grid(row = 4, column =1)
+delRunnerB.grid(row = 6, column =1)
 saveEditRunnerB = Button(editingRunnerFrm, text = "Save changes", command = lambda:saveRunnerEdits(runnerID, editingDetailsA))
-saveEditRunnerB.grid(row = 4, column = 2)
+saveEditRunnerB.grid(row = 6, column = 2)
 
 
 #editingtimes
@@ -1082,18 +1133,22 @@ editTimeSTB.grid(row =2, column = 4)
 
 editCheckLbl = Label(editingTimeFrm, text = "checked")
 editCheckLbl.grid(row = 3, column = 1)
-editCheckVar = IntVar()
+editCheckVar = StringVar()
 editCheckB = Checkbutton(editingTimeFrm, variable = editCheckVar)
 editCheckB.grid(row = 3, column = 2)
+
+editTimeNote = StringVar()
+editTimeNoteLbl = Label(editingTimeFrm, textvariable = editTimeNote)
+editTimeNoteLbl.grid(row = 3, column = 3, columnspan = 2)
 
 editingTimeA = [editTimeEventIn, editTimeHIn, editTimeMIn, editTimeSIn, editCheckVar,0]
 
 
 
-deleteTimeB = Button(editingTimeFrm, text = 'Delete Time', command = lambda: deleteTime(runnerID, editingTimeA))
+deleteTimeB = Button(editingTimeFrm, text = 'Delete Time', command = lambda: deleteTime(runnerID, editingTimeA,editTimeNote))
 deleteTimeB.grid(row  = 4, column =2, columnspan =3)#sticky = E????
 
-saveEditTimeB = Button(editingTimeFrm, text= "Save Edits", command = lambda: saveEditTime(runnerID,editingTimeA))
+saveEditTimeB = Button(editingTimeFrm, text= "Save Edits", command = lambda: saveEditTime(runnerID,editingTimeA,editTimeNote))
 saveEditTimeB.grid(row = 4, column = 1)
 
 
@@ -1101,7 +1156,7 @@ saveEditTimeB.grid(row = 4, column = 1)
 editRunnerB = Button(adminRunnerDBOptsTL, text = "Edit Runner", command = lambda: editRunnerDetails(runnerID, editingDetailsA))
 editRunnerB.grid(row = 2, column = 1)
 #within the edit menus thee will be a delete button/option
-editRunnerTimesB = Button(adminRunnerDBOptsTL, text = "Edit Time", command = lambda:editRunnerTimes(runnerID, viewTimesTree, viewTimesFrm,editingTimeA))
+editRunnerTimesB = Button(adminRunnerDBOptsTL, text = "Edit Time", command = lambda:editRunnerTimes(runnerID, viewTimesTree, viewTimesFrm,editingTimeA,editTimeNote))
 editRunnerTimesB.grid(row =2, column = 2)
 
 
