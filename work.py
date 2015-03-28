@@ -7,29 +7,26 @@ from random import randint
 def save(note):
     seconds = 0
     try:
+        #covert hours, minutes and seconds into seconds
         seconds += timeHIn.get() * 60*60
         seconds += timeMIn.get() * 60
         seconds += timeSIn.get()
         if timeHIn.get()>4:
             note.set("time must be less than 5 hours")
             return
-        if timeMIn.get()>=60:
+        if timeMIn.get()>=60:#make sure minutes are less than 60 as minutes should be
             note.set("minutes cannot be greater than 60")
             return
-        if timeSIn.get()>=60:
+        if timeSIn.get()>=60:#make sure seconds are less than 60 as seconds should be
             note.set("seconds cannot be greater than 60")
             return
-    except ValueError:
+    except ValueError:#incase non numberical characters have been entered
         note.set("hours,minutes and seconds must each be integers")
         return
-    
-    #note.set(str(seconds))
-##    secondsLbl = Label(timeEntryFrm, textvariable = savingNote)
-##    secondsLbl.grid(row = 4, column = 2)
 
-    db = sqlite3.connect("runningDB2/running.db")
+    db = sqlite3.connect("runningDB2/running.db")#conenct to database
     q = db.cursor()
-
+    #checking to make sure no time has already been entered for this event and runner
     sql = """SELECT runner_id, event_id FROM times
 WHERE runner_id = ?
 
@@ -41,10 +38,10 @@ WHERE runner_id = ?
         if str(times[i][1]) == eventsIn.get().split(':')[0]:
             exists = True
             note.set("A record for this event already exists")
-    if runnerID == 0:
+    if runnerID == 0:#incase the admin hasn't selected a runner
         note.set("No runner has been selected")
-    elif eventsIn.get() == "No Event Selected":
-        note.set("No event has been selected")
+    elif eventsIn.get() == "No Event Selected":#incase the user didn't select an event from the combobox
+         note.set("No event has been selected")
     elif not exists:
         sql = "INSERT INTO times(runner_id, event_id, time,checked) VALUES(?,?,?,?)"
         q.execute(sql, [runnerID, eventsIn.get().split(':')[0], seconds,0])
@@ -54,7 +51,7 @@ WHERE runner_id = ?
     q.close()
     db.close()
 
-def getEvents():#the events in the dropdown box
+def getEvents():#the events in the dropdown box for saving event
     db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
     sql = "SELECT * FROM events"
@@ -85,37 +82,39 @@ ORDER BY events.date DESC
     q.close()
     db.close()
 
-
     for i in range(len(data)):
+        #convert seconds stored in DB to hr/min/sec
         hours = floor(data[i][-2]/3600)
         minutes = floor((data[i][-2]-hours*3600)/60)
         seconds = data[i][-2]-hours*3600-minutes*60
-        if data[i][-1] == 1:
+        if data[i][-1] == 1:#if the time has been checked and approved by teacher
             checker = '✓'
         else:
             checker = '✗'
+        #i decided to store all the data after editing back in the same array that I got
         data[i] = [data[i][x] for x in range(len(data[i])-2)]
         data[i].append(str(hours) + ':' + str(minutes) + ':' + str(seconds))
         data[i].append(checker)
-    
+    #see the tree sections for a bit more notes on this
     insertIntoTree(tree, data)
     tree.grid(row =1,column =1, sticky = NSEW)
+    #these two lines are from Urvis' code
     yscroll.grid(row =1, column = 1, sticky = E+NS)
 
-    exitVTB.grid(row=2, column = 1)
-    viewTimesFrm.pack()
+    exitVTB.grid(row=2, column = 1)#puts the button on the screen
+    viewTimesFrm.pack()#adds the whol display times section to the screen
 
-def mapRange(val, start0, stop0, start1, stop1):
-    range0 = stop0-start0
-    range1 = stop1-start1
-    Pcent = (val -start0)/range0
-    finalV = range1 * Pcent + start1
+def mapRange(val, start0, stop0, start1, stop1):#maps a value from one range to a second
+    range0 = stop0-start0#calcualte the first range
+    range1 = stop1-start1#calculate the second
+    Pcent = (val -start0)/range0#how far through the 1st range is the val
+    finalV = range1 * Pcent + start1#move throgh the 2nd range the same %age distance
     return finalV
 
 def loadData(ID,locID):
     db = sqlite3.connect("runningDB2/running.db")
     q = db.cursor()
-    sql = """ SELECT * FROM times, runners, events, locations
+    sql = """SELECT time FROM times, runners, events, locations
 WHERE times.runner_id = runners.id
 AND events.location_id = locations.id
 AND times.event_id = events.id
@@ -123,11 +122,11 @@ AND runners.id = ?
 AND locations.id = ?
 """
     q.execute(sql,[ID,locID])
-    blob = q.fetchall()
+    fetched = q.fetchall()
 
     q.close()
     db.close()
-    return blob
+    return fetched
 
 def adminOpts(opt):
     if opt == "NEWRUNNER":
@@ -153,7 +152,7 @@ def addNewRunner(ID, form, fname, lname):
     #what about -ves
     if len(ID) != 4:
         newRNote.set("ID must be four digits long")
-        print("here")
+        #print("here")
     
     un = lname+str(ID)
     pw = genRanLetters(5)
@@ -257,7 +256,7 @@ def searchRunners(tree,fname, lname, ID):
         sql ="""SELECT * FROM runners
 WHERE fName LIKE ?
 OR lName LIKE ?
-OR id Like ?
+OR id LIKE ?
 """
     
         q.execute(sql, [fname, lname,ID])
@@ -288,32 +287,32 @@ def insertIntoTree(tree, values):
     for i in values:
         tree.insert("", END, "", values=i, tag='rowFont')
 
-def findRunnerTimes(tree):
-    runnerA = tree.item(tree.focus())['values']#an array with the runners data
-    #just got ID name form
-
-    db = sqlite3.connect("runningDB2/running.db")
-    q = db.cursor()
-    sql = """SELECT times.event_id, events.name, locations.name, times.time FROM times, events, locations, runners
-WHERE events.id = times.event_id
-AND locations.id = events.location_id
-AND runners.id = times.runner_id
-AND times.runner_id = ?
-"""
-    if len(runnerA) != 0:
-        q.execute(sql, [runnerA[0]])
-
-        times = q.fetchall()
-    q.close()
-    db.close()
-    for i in range(len(times)):
-        hours = floor(times[i][-1]/3600)
-        minutes = floor((times[i][-1]-hours*3600)/60)
-        seconds = times[i][-1]-hours*3600-minutes*60
-        times[i] = [times[i][x] for x in range(len(times[i])-1)]
-        times[i].append(str(hours) + ':' + str(minutes) + ':' + str(seconds))
-
-    return times
+##def findRunnerTimes(tree):
+##    runnerA = tree.item(tree.focus())['values']#an array with the runners data
+##    #just got ID name form
+##
+##    db = sqlite3.connect("runningDB2/running.db")
+##    q = db.cursor()
+##    sql = """SELECT times.event_id, events.name, locations.name, times.time FROM times, events, locations, runners
+##WHERE events.id = times.event_id
+##AND locations.id = events.location_id
+##AND runners.id = times.runner_id
+##AND times.runner_id = ?
+##"""
+##    if len(runnerA) != 0:
+##        q.execute(sql, [runnerA[0]])
+##
+##        times = q.fetchall()
+##    q.close()
+##    db.close()
+##    for i in range(len(times)):
+##        hours = floor(times[i][-1]/3600)
+##        minutes = floor((times[i][-1]-hours*3600)/60)
+##        seconds = times[i][-1]-hours*3600-minutes*60
+##        times[i] = [times[i][x] for x in range(len(times[i])-1)]
+##        times[i].append(str(hours) + ':' + str(minutes) + ':' + str(seconds))
+##
+##    return times
 
 def testUNPW3(unIn, pwIn, note):
     global DB, runnerID, failedLogins
@@ -376,7 +375,7 @@ def addNewLoc(ID,name,addr,dist,locA,note):
         return
     try:
         if float(dist) <= 0:
-            note.set("Distance be greater than 0")
+            note.set("The distance must be greater than 0")
             return
     except ValueError:
         note.set("The distance must be a number")
@@ -543,8 +542,6 @@ checked = False
 UN = "bob"
 PW = "blob"
 failedLogins = 0
-RUNNERUN = "blob"
-RUNNERPW = "bob"
 
 
 locsRaw = getLocs()
@@ -730,7 +727,7 @@ def genGraph():
     
     times = []
     for i in range(len(runnerData)):
-        times.append(runnerData[i][2])
+        times.append(runnerData[i][0])
     
 
     yMax = floor((max(times)/10**(len(str(max(times)))-1)+1))*10**(len(str(max(times)))-1)
@@ -740,7 +737,7 @@ def genGraph():
     margin = 20
     sqrx = int((windowW - margin)/10)
     sqry = int((windowH - margin)/10)
-    Tsize = 11
+    #Tsize = 11
 
     graphC = Canvas(master = graphFrames[-1], width = windowW, height = windowH, bg = "grey")#C for canvas
     graphC.pack()
@@ -1045,7 +1042,6 @@ createTree(runnersTreeview, viewRunnersCols,yscrollbar,(90,150,150,150,150,90))
 #i think i need a better name
 yscrollbar.grid(row=1, column=1, sticky=E+NS)
 
-
 runnersTreeview.grid(row = 1, column= 1, sticky = NSEW)
 
 
@@ -1178,5 +1174,5 @@ adminRunnerDBOptsTL.protocol('WM_DELETE_WINDOW', lambda:adminRunnerDBOptsTL.with
 
 myGUI.mainloop()
 
-print("and we're done")
+print("PROGRAM END")
 
